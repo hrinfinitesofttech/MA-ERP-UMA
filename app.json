@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "UMA TECHNO FAB ERP",
+    "slug": "uma-techno-fab-erp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "umaerp",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.umatechnofab.erp"
+    },
+    "android": {
+      "package": "com.umatechnofab.erp",
+      "adaptiveIcon": {
+        "backgroundColor": "#1E40AF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}
