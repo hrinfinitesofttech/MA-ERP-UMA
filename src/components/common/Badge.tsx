@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, spacing } from '../../theme/spacing';
 
 interface BadgeProps {
@@ -20,22 +21,22 @@ export const Badge: React.FC<BadgeProps> = ({
     switch (variant) {
       case 'success':
         return {
-          bg: { backgroundColor: colors.successLight, borderColor: colors.successBorder },
+          bg: { backgroundColor: colors.successLight, borderColor: colors.successLight },
           text: { color: colors.success },
         };
       case 'warning':
         return {
-          bg: { backgroundColor: colors.warningLight, borderColor: colors.warningBorder },
+          bg: { backgroundColor: colors.warningLight, borderColor: colors.warningLight },
           text: { color: colors.warning },
         };
       case 'danger':
         return {
-          bg: { backgroundColor: colors.dangerLight, borderColor: colors.dangerBorder },
+          bg: { backgroundColor: colors.dangerLight, borderColor: colors.dangerLight },
           text: { color: colors.danger },
         };
       case 'purple':
         return {
-          bg: { backgroundColor: colors.purpleLight, borderColor: colors.purpleBorder },
+          bg: { backgroundColor: colors.purpleLight, borderColor: colors.purpleLight },
           text: { color: colors.purple },
         };
       case 'neutral':
@@ -46,8 +47,8 @@ export const Badge: React.FC<BadgeProps> = ({
       case 'primary':
       default:
         return {
-          bg: { backgroundColor: colors.accentLight, borderColor: colors.accent },
-          text: { color: colors.accentDark },
+          bg: { backgroundColor: colors.primarySubtle, borderColor: colors.primarySubtle },
+          text: { color: colors.primary },
         };
     }
   };
@@ -64,13 +65,13 @@ export const Badge: React.FC<BadgeProps> = ({
       ]}
     >
       <Text style={[styles.text, text, size === 'sm' && styles.textSm]}>
-        {label}
+        {label.replace(/_/g, ' ')}
       </Text>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   base: {
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,
@@ -90,4 +91,4 @@ const styles = StyleSheet.create({
   textSm: {
     fontSize: 10,
   },
-});
+}));

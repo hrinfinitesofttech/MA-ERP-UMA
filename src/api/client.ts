@@ -65,6 +65,30 @@ export const setCustomApiBaseUrl = async (url: string) => {
   }
 };
 
+const CAMEL = /[a-z0-9][A-Z]/;
+const toSnake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+
+/**
+ * The backend answers with camelCase keys on most endpoints while parts of the app read
+ * snake_case. Add a snake_case alias next to every camelCase key so both shapes work.
+ */
+export const withSnakeCaseAliases = (value: any): any => {
+  if (Array.isArray(value)) return value.map(withSnakeCaseAliases);
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value)) {
+      const nv = withSnakeCaseAliases(v);
+      out[k] = nv;
+      if (CAMEL.test(k)) {
+        const snake = toSnake(k);
+        if (!(snake in value)) out[snake] = nv;
+      }
+    }
+    return out;
+  }
+  return value;
+};
+
 export const apiClient = axios.create({
   baseURL: DEFAULT_API_BASE_URL,
   timeout: 25000,
@@ -111,7 +135,10 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    response.data = withSnakeCaseAliases(response.data);
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 

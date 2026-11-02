@@ -16,10 +16,7 @@ import {
 import {
   ShoppingBag,
   Search,
-  Filter,
   Plus,
-  ArrowLeft,
-  RefreshCw,
   Clock,
   CheckCircle2,
   AlertTriangle,
@@ -28,7 +25,6 @@ import {
   Building,
   FileText,
   IndianRupee,
-  Layers,
   Send,
   Mail,
   ChevronRight,
@@ -37,13 +33,13 @@ import {
   X,
   FileCheck2,
   User,
-  Calendar,
   Phone,
   MapPin,
   ShieldCheck,
   Package,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import {
   purchaseApi,
@@ -55,8 +51,6 @@ import {
   RequestForQuotationItem,
   SupplierQuotationItem,
   QuotationComparisonItem,
-  POLineItem,
-  PRLineItem,
 } from '../../api/purchase';
 
 interface PurchaseManagementScreenProps {
@@ -343,12 +337,12 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
 
       const poPayload: Partial<PurchaseOrderItem> = {
         supplier_id: selectedSup?.id || newPOSupplierId,
-        supplier_name: selectedSup?.name || selectedSup?.supplierName || 'Selected Supplier',
+        supplier_name: selectedSup?.name || selectedSup?.supplierName || '',
         contact_person: selectedSup?.contact_person || selectedSup?.contactPerson || '',
         supplier_gstin: selectedSup?.gstin || '',
         supplier_address: selectedSup?.address || '',
-        project_id: newPOProject.trim() || 'General Project',
-        job_code: newPOProject.trim() || 'JOB-2026',
+        project_id: newPOProject.trim() || '',
+        job_code: newPOProject.trim() || '',
         delivery_date: newPODeliveryDate.trim() || new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
         payment_terms: newPOPaymentTerms,
         sub_total: subTotal,
@@ -405,8 +399,8 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
       const estTotal = qty * estRate;
 
       const prPayload: Partial<PurchaseRequisitionItem> = {
-        project_id: newPRProject.trim() || 'PRJ-2026-0001',
-        job_code: newPRProject.trim() || 'JOB-2026-001',
+        project_id: newPRProject.trim() || '',
+        job_code: newPRProject.trim() || '',
         department: newPRDepartment,
         priority: newPRPriority,
         required_by_date: newPRRequiredDate.trim() || new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0],
@@ -458,7 +452,7 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
         name: newSupplierName.trim(),
         supplierName: newSupplierName.trim(),
         category: newSupplierCategory,
-        contact_person: newSupplierContact.trim() || 'Sales Representative',
+        contact_person: newSupplierContact.trim() || '',
         phone: newSupplierPhone.trim(),
         mobile: newSupplierPhone.trim(),
         email: newSupplierEmail.trim(),
@@ -556,20 +550,6 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
 
   return (
     <View style={styles.container}>
-      {/* 1. Sub-Header with Back & Quick Action */}
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackToDashboard}>
-          <ArrowLeft size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.topBarTitleContainer}>
-          <Text style={styles.topBarTitle}>Purchase & Procurement</Text>
-          <Text style={styles.topBarSubtitle}>MRP • Indents • RFQ • Orders • Vendors</Text>
-        </View>
-        <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-          <RefreshCw size={18} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
       {/* 2. Success Toast */}
       {successToast && (
         <View style={styles.toastContainer}>
@@ -850,7 +830,7 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
                       <Truck size={16} color={colors.bronze} />
                     </View>
                     <Text style={styles.stageTitle}>6. Delivery/GRN</Text>
-                    <Text style={styles.stageCount}>Rajpur Works</Text>
+                    <Text style={styles.stageCount}>Goods receipt</Text>
                   </View>
                 </View>
               </View>
@@ -1056,7 +1036,7 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
                 filteredPRs.map((pr) => (
                   <View key={pr.id} style={styles.entityCard}>
                     <View style={styles.entityCardHeader}>
-                      <View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
                         <Text style={styles.entityCode}>{pr.pr_number || pr.prNumber}</Text>
                         <Text style={styles.entitySub}>Dept: {pr.department} • Ref: {pr.project_id || pr.job_code || 'General'}</Text>
                       </View>
@@ -1066,7 +1046,7 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
                     <View style={styles.entityMetaGrid}>
                       <View style={styles.metaCell}>
                         <Text style={styles.metaLabel}>Requester</Text>
-                        <Text style={styles.metaVal}>{pr.requested_by || pr.requestedBy || 'Purchase Admin'}</Text>
+                        <Text style={styles.metaVal}>{pr.requested_by || pr.requestedBy || '—'}</Text>
                       </View>
                       <View style={styles.metaCell}>
                         <Text style={styles.metaLabel}>Priority</Text>
@@ -1136,13 +1116,13 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
                   rfqs.map((rfq) => (
                     <View key={rfq.id} style={styles.rfqCard}>
                       <View style={styles.entityCardHeader}>
-                        <View>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
                           <Text style={styles.entityCode}>{rfq.rfq_number || rfq.rfqNumber}</Text>
                           <Text style={styles.entitySub}>Date: {rfq.rfq_date || rfq.rfqDate} • Due: {rfq.due_date || rfq.dueDate || '7 Days'}</Text>
                         </View>
                         {renderStatusBadge(rfq.status)}
                       </View>
-                      <Text style={styles.rfqSubject}>{rfq.subject || 'Material Purchase Requirement'}</Text>
+                      <Text style={styles.rfqSubject}>{rfq.subject || '—'}</Text>
                       <View style={styles.rfqFooter}>
                         <Text style={styles.rfqMetaText}>Location: {rfq.delivery_location || rfq.deliveryLocation || 'RAJPUR Works'}</Text>
                         <Text style={styles.rfqMetaText}>{rfq.items?.length || 0} Items</Text>
@@ -1168,7 +1148,7 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
                   comparisons.map((c) => (
                     <View key={c.id} style={styles.comparisonCard}>
                       <View style={styles.entityCardHeader}>
-                        <View>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
                           <Text style={styles.entityCode}>CS for {c.rfq_id || c.rfqId}</Text>
                           <Text style={styles.entitySub}>Evaluated on: {c.comparison_date || c.comparisonDate}</Text>
                         </View>
@@ -1352,10 +1332,6 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
                   <Text style={styles.detailLabel}>Payment Terms:</Text>
                   <Text style={styles.detailVal}>{selectedPO?.payment_terms || selectedPO?.paymentTerms || '30 Days Credit'}</Text>
                 </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Delivery Location:</Text>
-                  <Text style={styles.detailVal}>FOR Destination (Rajpur Works)</Text>
-                </View>
               </View>
 
               {/* Line Items */}
@@ -1365,8 +1341,8 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
                   selectedPO.items.map((item, idx) => (
                     <View key={idx} style={styles.lineItemRow}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.lineItemName}>{item.item_name || item.itemName || 'Material Item'}</Text>
-                        <Text style={styles.lineItemSpec}>{item.specification || item.dimensions || 'Commercial Grade'}</Text>
+                        <Text style={styles.lineItemName}>{item.item_name || item.itemName || '—'}</Text>
+                        <Text style={styles.lineItemSpec}>{item.specification || item.dimensions || '—'}</Text>
                         <Text style={styles.lineItemRate}>
                           Qty: {item.ordered_quantity || item.orderedQuantity || item.quantity || 1} {item.unit_of_measure || item.unit || 'NOS'} @ ₹{(item.unit_price || item.rate || 0).toLocaleString('en-IN')}
                         </Text>
@@ -1918,7 +1894,7 @@ export const PurchaseManagementScreen: React.FC<PurchaseManagementScreenProps> =
 // STYLESHEET
 // ==========================================
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -2739,4 +2715,4 @@ const styles = StyleSheet.create({
     color: colors.accentDark,
     lineHeight: 15,
   },
-});
+}));

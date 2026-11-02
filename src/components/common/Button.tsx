@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 
 interface ButtonProps {
@@ -105,7 +106,7 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   base: {
     borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
@@ -144,4 +145,4 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
-});
+}));

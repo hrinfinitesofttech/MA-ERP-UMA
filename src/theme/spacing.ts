@@ -9,30 +9,30 @@ export const spacing = {
 };
 
 export const borderRadius = {
-  sm: 6,
-  md: 10,
-  lg: 14,
-  xl: 18,
+  sm: 8,
+  md: 12,
+  lg: 18,
+  xl: 24,
   full: 9999,
 };
 
 export const shadows = {
   sm: {
-    shadowColor: '#0F172A',
+    shadowColor: '#16233F',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
   },
   md: {
-    shadowColor: '#0F172A',
+    shadowColor: '#16233F',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 4,
   },
   lg: {
-    shadowColor: '#0F172A',
+    shadowColor: '#16233F',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 12,

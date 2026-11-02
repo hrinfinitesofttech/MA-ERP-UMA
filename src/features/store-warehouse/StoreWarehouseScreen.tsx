@@ -16,38 +16,25 @@ import {
 import {
   Warehouse,
   Search,
-  Filter,
   Plus,
-  ArrowLeft,
-  RefreshCw,
-  Clock,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   Truck,
   Building,
-  FileText,
   IndianRupee,
-  Layers,
   Send,
   ChevronRight,
   Eye,
-  SlidersHorizontal,
   X,
-  FileCheck2,
-  User,
-  Calendar,
-  Phone,
   MapPin,
   ShieldCheck,
   Package,
   RotateCcw,
   Boxes,
   ArrowRightLeft,
-  QrCode,
-  Tag,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import {
   inventoryApi,
@@ -387,14 +374,14 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
         project_id: issueProject.trim() || 'PRJ-2026-0001',
         work_order_number: issueWorkOrder.trim() || 'WO-2026-001',
         department: issueDepartment,
-        issued_to: issueTo.trim() || 'Production Floor',
+        issued_to: issueTo.trim() || '',
         status: 'Fully Issued',
         items: [
           {
             item_code: stockBal?.item_code || issueItemCode.trim(),
             itemCode: stockBal?.item_code || issueItemCode.trim(),
-            item_name: stockBal?.item_name || 'Material Item',
-            itemName: stockBal?.item_name || 'Material Item',
+            item_name: stockBal?.item_name || '',
+            itemName: stockBal?.item_name || '',
             issuedQuantity: qty,
             issuedQty: qty,
             uom: stockBal?.uom || 'NOS',
@@ -437,9 +424,9 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
     setIsSubmittingReturn(true);
     try {
       const payload: Partial<MaterialReturnItem> = {
-        project_id: returnProject.trim() || 'PRJ-2026-0001',
-        material_issue_number: returnIssueRef.trim() || 'ISS-2026-001',
-        returned_by: returnBy.trim() || 'Ketan Parmar (Shop Supervisor)',
+        project_id: returnProject.trim(),
+        material_issue_number: returnIssueRef.trim(),
+        returned_by: returnBy.trim(),
         status: 'Completed',
         notes: `Reason: ${returnReason}`,
         items: [
@@ -552,20 +539,6 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* 1. Sub-Header with Back & Quick Action */}
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackToDashboard}>
-          <ArrowLeft size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.topBarTitleContainer}>
-          <Text style={styles.topBarTitle}>Store & Warehouse</Text>
-          <Text style={styles.topBarSubtitle}>Item Master • GRN • QC • Balances • Issues</Text>
-        </View>
-        <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-          <RefreshCw size={18} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
       {/* 2. Success Toast */}
       {successToast && (
         <View style={styles.toastContainer}>
@@ -783,7 +756,6 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Inward-Outward Inventory Flow</Text>
-                  <Text style={styles.cardMeta}>Rajpur Works Store</Text>
                 </View>
                 <View style={styles.workflowGrid}>
                   <View style={styles.stageNode}>
@@ -1064,7 +1036,7 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
                 qcInspections.map((qc) => (
                   <View key={qc.id} style={styles.entityCard}>
                     <View style={styles.entityCardHeader}>
-                      <View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
                         <Text style={styles.entityCode}>{qc.inspection_number || qc.inspectionNumber || qc.id}</Text>
                         <Text style={styles.entitySub}>GRN: {qc.grn_number || qc.grnNumber} • Inspector: {qc.inspector || qc.inspectorName}</Text>
                       </View>
@@ -1216,10 +1188,10 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
                     filteredIssues.map((iss) => (
                       <View key={iss.id} style={styles.entityCard}>
                         <View style={styles.entityCardHeader}>
-                          <View>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
                             <Text style={styles.entityCode}>{iss.issue_number || iss.issueNumber}</Text>
                             <Text style={styles.entitySub}>
-                              Issued To: {iss.issued_to || iss.issuedTo} • Project: {iss.project_id || 'General'}
+                              Issued To: {iss.issued_to || iss.issuedTo} • Project: {iss.project_id || '—'}
                             </Text>
                           </View>
                           {renderStatusBadge(iss.status || 'Fully Issued')}
@@ -1228,7 +1200,7 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
                         <View style={styles.entityMetaGrid}>
                           <View style={styles.metaCell}>
                             <Text style={styles.metaLabel}>Work Order</Text>
-                            <Text style={styles.metaVal}>{iss.work_order_number || 'WO-2026'}</Text>
+                            <Text style={styles.metaVal}>{iss.work_order_number || '—'}</Text>
                           </View>
                           <View style={styles.metaCell}>
                             <Text style={styles.metaLabel}>Issue Date</Text>
@@ -1236,12 +1208,12 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
                           </View>
                           <View style={styles.metaCell}>
                             <Text style={styles.metaLabel}>Store In-charge</Text>
-                            <Text style={styles.metaVal}>{iss.issued_by || iss.issuedBy || 'Store Head'}</Text>
+                            <Text style={styles.metaVal}>{iss.issued_by || iss.issuedBy || '—'}</Text>
                           </View>
                           <View style={styles.metaCell}>
                             <Text style={styles.metaLabel}>Items Count</Text>
                             <Text style={[styles.metaVal, { color: colors.primary, fontWeight: '700' }]}>
-                              {iss.items?.length || 1} Items
+                              {iss.items?.length ?? 0} Items
                             </Text>
                           </View>
                         </View>
@@ -1268,7 +1240,7 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
                     filteredReturns.map((ret) => (
                       <View key={ret.id} style={styles.entityCard}>
                         <View style={styles.entityCardHeader}>
-                          <View>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
                             <Text style={styles.entityCode}>{ret.return_number || ret.returnNumber}</Text>
                             <Text style={styles.entitySub}>
                               Returned By: {ret.returned_by || ret.returnedBy} • Project: {ret.project_id || 'General'}
@@ -1592,6 +1564,98 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* MODAL: MATERIAL RETURN FROM SHOP */}
+      <Modal visible={showNewReturnModal} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Return Material from Shop</Text>
+              <TouchableOpacity onPress={() => setShowNewReturnModal(false)}>
+                <X size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+              <Text style={styles.formInputLabel}>Project Reference</Text>
+              <TextInput
+                style={styles.formTextInput}
+                placeholder="e.g. PRJ-2026-0001"
+                placeholderTextColor={colors.textMuted}
+                value={returnProject}
+                onChangeText={setReturnProject}
+              />
+
+              <Text style={styles.formInputLabel}>Original Issue Slip No.</Text>
+              <TextInput
+                style={styles.formTextInput}
+                placeholder="e.g. ISS-2026-001"
+                placeholderTextColor={colors.textMuted}
+                value={returnIssueRef}
+                onChangeText={setReturnIssueRef}
+              />
+
+              <Text style={styles.formInputLabel}>Returned By</Text>
+              <TextInput
+                style={styles.formTextInput}
+                placeholder="Name of supervisor / lead"
+                placeholderTextColor={colors.textMuted}
+                value={returnBy}
+                onChangeText={setReturnBy}
+              />
+
+              <Text style={styles.formInputLabel}>Reason</Text>
+              <TextInput
+                style={styles.formTextInput}
+                placeholder="e.g. Excess Material"
+                placeholderTextColor={colors.textMuted}
+                value={returnReason}
+                onChangeText={setReturnReason}
+              />
+
+              <View style={styles.formDivider} />
+              <Text style={styles.sectionHeader}>Material</Text>
+
+              <Text style={styles.formInputLabel}>Item Code *</Text>
+              <TextInput
+                style={styles.formTextInput}
+                placeholder="e.g. RAW-PL-MS-12MM"
+                placeholderTextColor={colors.textMuted}
+                value={returnItemCode}
+                onChangeText={setReturnItemCode}
+              />
+
+              <Text style={styles.formInputLabel}>Return Quantity *</Text>
+              <TextInput
+                style={styles.formTextInput}
+                placeholder="e.g. 5"
+                placeholderTextColor={colors.textMuted}
+                value={returnQty}
+                onChangeText={setReturnQty}
+                keyboardType="numeric"
+              />
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalSecondaryBtn}
+                onPress={() => setShowNewReturnModal(false)}
+                disabled={isSubmittingReturn}
+              >
+                <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.modalPrimaryBtn} onPress={handleCreateReturn} disabled={isSubmittingReturn}>
+                {isSubmittingReturn ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalPrimaryBtnText}>Record Return</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* ------------------------------------------------------------- */}
       {/* 11. MODAL: RECORD QC DECISION */}
       {/* ------------------------------------------------------------- */}
@@ -1757,7 +1821,7 @@ export const StoreWarehouseScreen: React.FC<StoreWarehouseScreenProps> = ({
 // STYLESHEET
 // ==========================================
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -2517,4 +2581,4 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
-});
+}));

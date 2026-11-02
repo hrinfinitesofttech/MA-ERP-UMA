@@ -21,44 +21,25 @@ export interface AuthResponse {
   refresh: string;
 }
 
-export interface ProjectJob {
+export interface DashboardJob {
   id: string;
-  jobNumber?: string;
-  projectNumber?: string;
-  customerName?: string;
-  productName?: string;
-  projectName?: string;
-  customerPoNumber?: string;
-  salesOrderNumber?: string;
-  orderValue?: number | string;
-  deliveryDate?: string;
-  targetDeliveryDate?: string;
-  progressPercent?: number;
-  currentStage?: string;
-  stage?: string;
-  status?: string;
-  priority?: 'urgent' | 'high' | 'medium' | 'normal' | 'low';
-}
-
-export interface ManufacturingJob {
-  id: string;
-  jobNumber?: string;
-  productName?: string;
-  workCenter?: string;
-  status?: string;
-  progressPercent?: number;
-  startDate?: string;
-  targetDate?: string;
+  jobNumber: string;
+  customerName: string;
+  productName: string;
+  orderValue: number;
+  dueDate: string;
+  progressPercent: number;
+  status: string;
+  priority: string;
+  health: string;
 }
 
 export interface WorkCenterBay {
   id: string;
-  bayNumber: number;
   name: string;
-  operation: string;
-  status: 'READY' | 'IN PROGRESS' | 'CLEARED' | 'STANDBY';
-  currentJob?: string;
-  operator?: string;
+  location: string;
+  status: string;
+  efficiency: number | null;
 }
 
 export interface TodayAttendance {
@@ -96,13 +77,10 @@ export interface EmployeeDashboardData {
 
 export interface DashboardMetrics {
   activeBacklog: number;
-  activeFloorCount: number;
+  activeProjects: number;
   expediteCount: number;
-  qualityPassRate: number;
-  inPlanningCount: number;
-  inFabCount: number;
-  inQcCount: number;
-  readyDispatchCount: number;
+  qualityPassRate: number | null;
+  stageCounts: { planning: number; fabrication: number; quality: number; dispatch: number };
   bays: WorkCenterBay[];
-  recentJobs: ProjectJob[];
+  jobs: DashboardJob[];
 }

@@ -15,15 +15,10 @@ import {
   Compass,
   Search,
   Plus,
-  CheckCircle2,
-  Clock,
   AlertTriangle,
   Layers,
   Calendar,
-  Building,
   User,
-  DollarSign,
-  TrendingUp,
   FileText,
   X,
   RefreshCw,
@@ -33,12 +28,10 @@ import {
   FileSpreadsheet,
   Boxes,
   Package,
-  ShieldCheck,
-  Tag,
   Share2,
-  ExternalLink,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import {
   engineeringApi,
@@ -364,12 +357,12 @@ export const DesignerEngineeringScreen: React.FC<DesignerEngineeringScreenProps>
   // Helper for Process Code Badge in BOM
   const getPBadgeColor = (pCode?: string) => {
     const c = (pCode || 'C').toUpperCase();
-    if (c === 'C') return { bg: '#DBEAFE', text: '#1E40AF', label: 'C • Laser/Plasma Cut' };
+    if (c === 'C') return { bg: '#EAEEF7', text: '#16233F', label: 'C • Laser/Plasma Cut' };
     if (c === 'B') return { bg: '#F3E8FF', text: '#7E22CE', label: 'B • CNC Bending' };
-    if (c === 'OC') return { bg: '#FEF3C7', text: '#B45309', label: 'OC • Other Cut' };
+    if (c === 'OC') return { bg: '#FDF4DF', text: '#B45309', label: 'OC • Other Cut' };
     if (c === 'P') return { bg: '#D1FAE5', text: '#065F46', label: 'P • Purchase/Store' };
     if (c === 'M') return { bg: '#FFE4E6', text: '#BE123C', label: 'M • VMC Machining' };
-    return { bg: '#F1F5F9', text: '#475569', label: c };
+    return { bg: '#EFECE5', text: '#4B5365', label: c };
   };
 
   return (
@@ -532,10 +525,10 @@ export const DesignerEngineeringScreen: React.FC<DesignerEngineeringScreenProps>
                   <Text style={styles.cardHeaderSubtitle}>Design lifecycle from 3D CAD modeling to BOM release</Text>
                   <View style={styles.stageGrid}>
                     {[
-                      { name: 'Concept & Specs', count: jobs.filter((j) => (j.status || '').includes('pending')).length, color: '#8B5CF6' },
-                      { name: '3D CAD Modeling', count: jobs.filter((j) => (j.status || '').includes('in_progress')).length, color: '#3B82F6' },
-                      { name: 'GA Approvals', count: jobs.filter((j) => (j.status || '').includes('approved')).length, color: '#10B981' },
-                      { name: 'Released to Fab', count: jobs.filter((j) => (j.status || '').includes('released')).length, color: '#059669' },
+                      { name: 'Concept & Specs', count: jobs.filter((j) => (j.status || '').includes('pending')).length, color: '#6D4BC9' },
+                      { name: '3D CAD Modeling', count: jobs.filter((j) => (j.status || '').includes('in_progress')).length, color: '#3B5BA9' },
+                      { name: 'GA Approvals', count: jobs.filter((j) => (j.status || '').includes('approved')).length, color: '#17875B' },
+                      { name: 'Released to Fab', count: jobs.filter((j) => (j.status || '').includes('released')).length, color: '#17875B' },
                     ].map((stg, idx) => (
                       <View key={idx} style={styles.stageGridItem}>
                         <View style={[styles.stageColorDot, { backgroundColor: stg.color }]} />
@@ -581,7 +574,7 @@ export const DesignerEngineeringScreen: React.FC<DesignerEngineeringScreenProps>
                             <Text style={styles.reviewJobNumber}>{j.design_job_number}</Text>
                             <Text style={styles.reviewJobProduct}>{j.product_name}</Text>
                             <Text style={styles.reviewJobDesigner}>
-                              Lead: {j.assigned_designer || 'Dharmesh Joshi'} • {j.active_revision}
+                              Lead: {j.assigned_designer || '—'} • {j.active_revision}
                             </Text>
                           </View>
                           <TouchableOpacity
@@ -630,7 +623,7 @@ export const DesignerEngineeringScreen: React.FC<DesignerEngineeringScreenProps>
                         <View style={styles.metaRow}>
                           <View style={styles.metaItem}>
                             <User size={13} color={colors.textSecondary} />
-                            <Text style={styles.metaText}>{job.assigned_designer || 'Dharmesh Joshi'}</Text>
+                            <Text style={styles.metaText}>{job.assigned_designer || '—'}</Text>
                           </View>
                           <View style={styles.metaItem}>
                             <Calendar size={13} color={colors.textSecondary} />
@@ -749,7 +742,7 @@ export const DesignerEngineeringScreen: React.FC<DesignerEngineeringScreenProps>
 
                         <View style={styles.metaRow}>
                           <Text style={styles.metaText}>Scale: {dwg.scale || '1:10'}</Text>
-                          <Text style={styles.metaText}>Approved by: {dwg.approved_by || 'Dharmesh Joshi'}</Text>
+                          <Text style={styles.metaText}>Approved by: {dwg.approved_by || '—'}</Text>
                         </View>
                       </TouchableOpacity>
                     ))
@@ -1302,7 +1295,7 @@ export const DesignerEngineeringScreen: React.FC<DesignerEngineeringScreenProps>
 
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Lead Designer:</Text>
-                    <Text style={styles.detailValue}>{selectedJobDetail.assigned_designer || 'Dharmesh Joshi'}</Text>
+                    <Text style={styles.detailValue}>{selectedJobDetail.assigned_designer || '—'}</Text>
                   </View>
 
                   <View style={styles.detailRow}>
@@ -1394,11 +1387,11 @@ export const DesignerEngineeringScreen: React.FC<DesignerEngineeringScreenProps>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Prepared By:</Text>
-                  <Text style={styles.detailValue}>{selectedDrawingDetail.prepared_by || 'Dharmesh Joshi'}</Text>
+                  <Text style={styles.detailValue}>{selectedDrawingDetail.prepared_by || '—'}</Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Approved By:</Text>
-                  <Text style={styles.detailValue}>{selectedDrawingDetail.approved_by || 'Ketan Patel'}</Text>
+                  <Text style={styles.detailValue}>{selectedDrawingDetail.approved_by || '—'}</Text>
                 </View>
 
                 <TouchableOpacity
@@ -1420,7 +1413,7 @@ export const DesignerEngineeringScreen: React.FC<DesignerEngineeringScreenProps>
 // STYLES
 // ==========================================
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1564,7 +1557,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   errorCard: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FCEBE9',
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     alignItems: 'center',
@@ -1734,7 +1727,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   revisionBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#EFECE5',
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: borderRadius.sm,
@@ -1742,7 +1735,7 @@ const styles = StyleSheet.create({
   revisionBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#334155',
+    color: '#4B5365',
   },
   jobProductTitle: {
     fontSize: 14,
@@ -1894,7 +1887,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   dwgFormatBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FDF4DF',
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: borderRadius.sm,
@@ -1902,7 +1895,7 @@ const styles = StyleSheet.create({
   dwgFormatText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#D97706',
+    color: '#B7791F',
   },
   dwgTitle: {
     fontSize: 14,
@@ -2186,7 +2179,7 @@ const styles = StyleSheet.create({
   },
   disapproveBtn: {
     flex: 1,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FCEBE9',
     paddingVertical: 10,
     borderRadius: borderRadius.md,
     alignItems: 'center',
@@ -2259,4 +2252,4 @@ const styles = StyleSheet.create({
     width: '60%',
     textAlign: 'right',
   },
-});
+}));

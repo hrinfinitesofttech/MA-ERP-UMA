@@ -8,1291 +8,566 @@ import {
   RefreshControl,
   ActivityIndicator,
   TextInput,
-  Platform,
   Alert,
 } from 'react-native';
-import {
-  FileText,
-  Activity,
-  AlertTriangle,
-  ShieldCheck,
-  Search,
-  Filter,
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  TrendingUp,
-  Factory,
-  Layers,
-  Sparkles,
-  ChevronRight,
-  RefreshCw,
-  SlidersHorizontal,
-  Briefcase,
-  Play,
-  Square,
-  CheckSquare,
-} from 'lucide-react-native';
+import { Search, Clock, Briefcase, Play, Square, AlertTriangle, WifiOff } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import { useAuth } from '../../context/AuthContext';
 import { dashboardApi } from '../../api/dashboard';
-import {
-  DashboardMetrics,
-  EmployeeDashboardData,
-  ProjectJob,
-  WorkCenterBay,
-} from '../../api/types';
+import { DashboardMetrics, DashboardJob, EmployeeDashboardData, WorkCenterBay } from '../../api/types';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 
-export const DashboardScreen: React.FC<{ navigation?: any; onOpenMenu?: () => void }> = ({
-  onOpenMenu,
-}) => {
+type StageFilter = 'all' | 'planning' | 'fabrication' | 'quality' | 'dispatch';
+
+const STAGE_FILTERS: { id: StageFilter; label: string; keys: string[] }[] = [
+  { id: 'all', label: 'All', keys: [] },
+  { id: 'planning', label: 'Planning', keys: ['plan', 'design', 'bom', 'material', 'purchase'] },
+  { id: 'fabrication', label: 'Fabrication', keys: ['fab', 'prod', 'weld', 'machin'] },
+  { id: 'quality', label: 'Quality', keys: ['qual', 'qc', 'test', 'inspect', 'ndt'] },
+  { id: 'dispatch', label: 'Dispatch', keys: ['dispatch', 'ready', 'store'] },
+];
+
+const formatINR = (value: number) => `₹ ${value.toLocaleString('en-IN')}`;
+const prettyStatus = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+const stageVariant = (status: string): 'primary' | 'success' | 'warning' | 'purple' => {
+  if (['qual', 'qc', 'test', 'inspect'].some((k) => status.includes(k))) return 'purple';
+  if (['dispatch', 'ready', 'complete'].some((k) => status.includes(k))) return 'success';
+  if (['plan', 'design', 'material'].some((k) => status.includes(k))) return 'warning';
+  return 'primary';
+};
+
+const bayVariant = (status: string): 'success' | 'primary' | 'warning' | 'danger' | 'neutral' => {
+  const s = status.toLowerCase();
+  if (s.includes('running') || s.includes('progress')) return 'primary';
+  if (s.includes('available') || s.includes('ready')) return 'success';
+  if (s.includes('maint') || s.includes('idle') || s.includes('standby')) return 'warning';
+  if (s.includes('break')) return 'danger';
+  return 'neutral';
+};
+
+const Stat: React.FC<{ label: string; value: string; tone?: string; hint?: string }> = ({ label, value, tone, hint }) => (
+  <View style={styles.stat}>
+    <Text style={styles.statLabel}>{label}</Text>
+    <Text style={[styles.statValue, tone ? { color: tone } : null]} numberOfLines={1} adjustsFontSizeToFit>
+      {value}
+    </Text>
+    {hint ? <Text style={styles.statHint}>{hint}</Text> : null}
+  </View>
+);
+
+export const DashboardScreen: React.FC<{ onOpenMenu?: () => void }> = () => {
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<'executive' | 'employee'>('executive');
+  const [viewMode, setViewMode] = useState<'overview' | 'workspace'>('overview');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Executive Dashboard Data
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-
-  // Employee Dashboard Data
   const [employeeData, setEmployeeData] = useState<EmployeeDashboardData | null>(null);
   const [punchLoading, setPunchLoading] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
 
-  // Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [stageFilter, setStageFilter] = useState<'All' | 'PLAN' | 'FAB' | 'QUAL' | 'READY'>('All');
-
-  // Live Digital Clock
-  const [currentTime, setCurrentTime] = useState('');
+  const [stageFilter, setStageFilter] = useState<StageFilter>('all');
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(
-        now.toLocaleTimeString('en-IN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        })
-      );
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
+    if (viewMode !== 'workspace') return;
+    const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [viewMode]);
 
-  const loadDashboardData = useCallback(async (isRefresh = false) => {
-    if (!isRefresh) setLoading(true);
-    setError(null);
-    try {
-      const [execMetrics, empData] = await Promise.allSettled([
+  const loadData = useCallback(
+    async (isRefresh = false) => {
+      if (!isRefresh) setLoading(true);
+      setError(null);
+      const [exec, emp] = await Promise.allSettled([
         dashboardApi.getExecutiveDashboard(),
         dashboardApi.getEmployeeDashboard(user?.id),
       ]);
 
-      if (execMetrics.status === 'fulfilled') {
-        setMetrics(execMetrics.value);
-      } else {
-        console.warn('Failed to fetch executive metrics:', execMetrics.reason);
-      }
+      if (exec.status === 'fulfilled') setMetrics(exec.value);
+      else setError('Could not load live data. Pull down to retry.');
+      if (emp.status === 'fulfilled') setEmployeeData(emp.value);
 
-      if (empData.status === 'fulfilled') {
-        setEmployeeData(empData.value);
-      }
-    } catch (err: any) {
-      setError('Unable to synchronize live ERP dashboard. Showing latest cached records.');
-    } finally {
       setLoading(false);
       setRefreshing(false);
-    }
-  }, [user?.id]);
+    },
+    [user?.id]
+  );
 
   useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+    loadData();
+  }, [loadData]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadDashboardData(true);
-  };
-
-  // Attendance Punch Handlers
-  const handlePunchIn = async () => {
+  const runPunch = async (kind: 'in' | 'out') => {
     setPunchLoading(true);
     try {
-      const res = await dashboardApi.punchIn();
-      Alert.alert('Success', res.message || 'Punched In Successfully!');
-      loadDashboardData(true);
+      const res = kind === 'in' ? await dashboardApi.punchIn() : await dashboardApi.punchOut();
+      Alert.alert('Done', res.message || (kind === 'in' ? 'Punched in.' : 'Punched out.'));
+      loadData(true);
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Failed to record punch in.';
-      Alert.alert('Attendance Alert', msg);
+      Alert.alert('Attendance', err?.response?.data?.error || err?.message || 'Could not record attendance.');
     } finally {
       setPunchLoading(false);
     }
   };
 
-  const handlePunchOut = async () => {
-    setPunchLoading(true);
-    try {
-      const res = await dashboardApi.punchOut();
-      Alert.alert('Success', res.message || 'Punched Out Successfully!');
-      loadDashboardData(true);
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Failed to record punch out.';
-      Alert.alert('Attendance Alert', msg);
-    } finally {
-      setPunchLoading(false);
-    }
-  };
-
-  // Task Progress Handler
-  const handleUpdateTask = async (taskId: string, newPct: number) => {
+  const updateTask = async (taskId: string, pct: number) => {
     setUpdatingTaskId(taskId);
     try {
-      await dashboardApi.updateTaskProgress(taskId, newPct);
-      loadDashboardData(true);
-    } catch (err: any) {
-      Alert.alert('Task Error', 'Failed to update progress on backend.');
+      await dashboardApi.updateTaskProgress(taskId, pct);
+      loadData(true);
+    } catch {
+      Alert.alert('Task', 'Could not update task progress.');
     } finally {
       setUpdatingTaskId(null);
     }
   };
 
-  // Filtered Jobs
   const filteredJobs = useMemo(() => {
-    if (!metrics?.recentJobs) return [];
-    return metrics.recentJobs.filter((job) => {
-      const stage = (job.currentStage || job.stage || job.status || '').toUpperCase();
-      const matchesStage =
-        stageFilter === 'All' ||
-        (stageFilter === 'PLAN' && (stage.includes('PLAN') || stage.includes('DESIGN') || stage.includes('BOM'))) ||
-        (stageFilter === 'FAB' && (stage.includes('FAB') || stage.includes('PROD') || stage.includes('WELD'))) ||
-        (stageFilter === 'QUAL' && (stage.includes('QUAL') || stage.includes('QC') || stage.includes('TEST') || stage.includes('INSPECT'))) ||
-        (stageFilter === 'READY' && (stage.includes('STORE') || stage.includes('DISPATCH') || stage.includes('READY')));
-
-      const matchesSearch =
-        !searchQuery.trim() ||
-        (job.jobNumber && job.jobNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (job.id && job.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (job.customerName && job.customerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (job.productName && job.productName.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      return matchesStage && matchesSearch;
+    const keys = STAGE_FILTERS.find((f) => f.id === stageFilter)?.keys ?? [];
+    const q = searchQuery.trim().toLowerCase();
+    return (metrics?.jobs ?? []).filter((job) => {
+      const stageOk = keys.length === 0 || keys.some((k) => job.status.includes(k));
+      const searchOk =
+        !q || [job.jobNumber, job.customerName, job.productName].some((v) => v.toLowerCase().includes(q));
+      return stageOk && searchOk;
     });
-  }, [metrics?.recentJobs, stageFilter, searchQuery]);
+  }, [metrics?.jobs, stageFilter, searchQuery]);
 
-  const todayStr = useMemo(() => {
-    return new Date().toLocaleDateString('en-IN', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  }, []);
-
-  if (loading && !refreshing && !metrics) {
+  if (loading && !metrics) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Connecting to UMA TECHNO FAB ERP...</Text>
-        <Text style={styles.loadingSub}>Syncing live shop floor telemetry & KPIs</Text>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={styles.centerText}>Loading your dashboard…</Text>
       </View>
     );
   }
+
+  const firstName = (user?.name || user?.username || '').split(' ')[0];
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const renderOverview = () => {
+    if (!metrics) {
+      return (
+        <Card style={styles.empty}>
+          <WifiOff size={32} color={colors.textMuted} />
+          <Text style={styles.emptyTitle}>No data available</Text>
+          <Text style={styles.emptySub}>Pull down to refresh.</Text>
+        </Card>
+      );
+    }
+    const stages = [
+      { label: 'Planning', value: metrics.stageCounts.planning, color: colors.warning },
+      { label: 'Fabrication', value: metrics.stageCounts.fabrication, color: colors.accent },
+      { label: 'Quality', value: metrics.stageCounts.quality, color: colors.purple },
+      { label: 'Dispatch', value: metrics.stageCounts.dispatch, color: colors.success },
+    ];
+    const maxStage = Math.max(1, ...stages.map((s) => s.value));
+
+    return (
+      <>
+        <View style={styles.hero}>
+          <Text style={styles.heroLabel}>ORDER BACKLOG</Text>
+          <Text style={styles.heroValue}>{formatINR(metrics.activeBacklog)}</Text>
+          <View style={styles.heroRow}>
+            <Stat label="Active projects" value={String(metrics.activeProjects)} />
+            <Stat label="Need attention" value={String(metrics.expediteCount)} tone={metrics.expediteCount > 0 ? '#FFB199' : undefined} />
+            <Stat label="QC pass rate" value={metrics.qualityPassRate === null ? '—' : `${metrics.qualityPassRate}%`} />
+          </View>
+        </View>
+
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Pipeline</Text>
+          {stages.map((s) => (
+            <View key={s.label} style={styles.pipeRow}>
+              <Text style={styles.pipeLabel}>{s.label}</Text>
+              <View style={styles.pipeTrack}>
+                <View style={[styles.pipeFill, { width: `${(s.value / maxStage) * 100}%`, backgroundColor: s.color }]} />
+              </View>
+              <Text style={styles.pipeValue}>{s.value}</Text>
+            </View>
+          ))}
+        </Card>
+
+        {metrics.bays.length > 0 && (
+          <Card style={styles.section}>
+            <Text style={styles.sectionTitle}>Work centers</Text>
+            {metrics.bays.map((bay: WorkCenterBay, idx) => (
+              <View key={bay.id} style={[styles.bayRow, idx > 0 && styles.rowDivider]}>
+                <View style={styles.flex}>
+                  <Text style={styles.bayName}>{bay.name}</Text>
+                  {bay.location ? <Text style={styles.bayMeta}>{bay.location}</Text> : null}
+                </View>
+                <Badge label={prettyStatus(bay.status)} variant={bayVariant(bay.status)} size="sm" />
+              </View>
+            ))}
+          </Card>
+        )}
+
+        <View style={styles.listHeader}>
+          <Text style={styles.listTitle}>Active jobs</Text>
+          <Text style={styles.listCount}>{filteredJobs.length}</Text>
+        </View>
+
+        <View style={styles.search}>
+          <Search size={16} color={colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search job, customer or product"
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips} contentContainerStyle={styles.chipsContent}>
+          {STAGE_FILTERS.map((chip) => {
+            const selected = stageFilter === chip.id;
+            return (
+              <TouchableOpacity
+                key={chip.id}
+                style={[styles.chip, selected && styles.chipActive]}
+                onPress={() => setStageFilter(chip.id)}
+              >
+                <Text style={[styles.chipText, selected && styles.chipTextActive]}>{chip.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {filteredJobs.length === 0 ? (
+          <Card style={styles.empty}>
+            <Briefcase size={32} color={colors.textMuted} />
+            <Text style={styles.emptyTitle}>No jobs found</Text>
+            <Text style={styles.emptySub}>Try a different search or filter.</Text>
+          </Card>
+        ) : (
+          filteredJobs.map((job: DashboardJob) => (
+            <Card key={job.id} style={styles.jobCard}>
+              <View style={styles.jobTop}>
+                <View style={styles.flex}>
+                  <Text style={styles.jobNumber}>{job.jobNumber}</Text>
+                  <Text style={styles.jobCustomer} numberOfLines={1}>{job.customerName}</Text>
+                </View>
+                <Badge label={prettyStatus(job.status)} variant={stageVariant(job.status)} size="sm" />
+              </View>
+              <Text style={styles.jobProduct} numberOfLines={2}>{job.productName}</Text>
+              <View style={styles.jobMeta}>
+                <Text style={styles.jobValue}>{job.orderValue > 0 ? formatINR(job.orderValue) : '—'}</Text>
+                <Text style={styles.jobDue}>Due {job.dueDate}</Text>
+              </View>
+              <View style={styles.track}>
+                <View style={[styles.trackFill, { width: `${job.progressPercent}%` }]} />
+              </View>
+              <Text style={styles.trackLabel}>{job.progressPercent}% complete</Text>
+            </Card>
+          ))
+        )}
+      </>
+    );
+  };
+
+  const attendance = employeeData?.todayAttendance;
+  const tasks = employeeData?.tasksSummary?.recentTasks ?? [];
+
+  const renderWorkspace = () => (
+    <>
+      <Card style={styles.clockCard}>
+        <Text style={styles.clockDate}>
+          {now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </Text>
+        <Text style={styles.clockTime}>
+          {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.punchBtn, attendance?.checkIn ? styles.punchOut : styles.punchIn]}
+          onPress={() => runPunch(attendance?.checkIn ? 'out' : 'in')}
+          disabled={punchLoading}
+          activeOpacity={0.85}
+        >
+          {punchLoading ? (
+            <ActivityIndicator color={colors.textInverse} />
+          ) : (
+            <>
+              {attendance?.checkIn ? <Square size={16} color={colors.textInverse} /> : <Play size={16} color={colors.textInverse} />}
+              <Text style={styles.punchText}>{attendance?.checkIn ? 'Punch out' : 'Punch in'}</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.attRow}>
+          <View style={styles.attCol}>
+            <Text style={styles.attLabel}>In</Text>
+            <Text style={styles.attValue}>{attendance?.checkIn || '—'}</Text>
+          </View>
+          <View style={styles.attCol}>
+            <Text style={styles.attLabel}>Out</Text>
+            <Text style={styles.attValue}>{attendance?.checkOut || '—'}</Text>
+          </View>
+          <View style={styles.attCol}>
+            <Text style={styles.attLabel}>Status</Text>
+            <Text style={styles.attValue}>{attendance?.status || '—'}</Text>
+          </View>
+        </View>
+      </Card>
+
+      <View style={styles.listHeader}>
+        <Text style={styles.listTitle}>My tasks</Text>
+        <Text style={styles.listCount}>{tasks.length}</Text>
+      </View>
+
+      {tasks.length === 0 ? (
+        <Card style={styles.empty}>
+          <Briefcase size={32} color={colors.textMuted} />
+          <Text style={styles.emptyTitle}>No tasks assigned</Text>
+          <Text style={styles.emptySub}>Tasks assigned to you will appear here.</Text>
+        </Card>
+      ) : (
+        tasks.map((task) => (
+          <Card key={task.id} style={styles.jobCard}>
+            <View style={styles.jobTop}>
+              <Text style={[styles.jobProduct, styles.flex]}>{task.title}</Text>
+              <Badge
+                label={(task.priority || 'normal').toUpperCase()}
+                variant={task.priority === 'urgent' ? 'danger' : task.priority === 'high' ? 'warning' : 'neutral'}
+                size="sm"
+              />
+            </View>
+            <View style={styles.dueRow}>
+              <Clock size={13} color={colors.textMuted} />
+              <Text style={styles.jobDue}>Due {task.dueDate || '—'}</Text>
+            </View>
+            <View style={styles.track}>
+              <View style={[styles.trackFill, { width: `${task.progressPercent}%` }]} />
+            </View>
+            <Text style={styles.trackLabel}>{task.progressPercent}% complete</Text>
+            <View style={styles.pctRow}>
+              {[25, 50, 75, 100].map((pct) => {
+                const done = task.progressPercent >= pct;
+                return (
+                  <TouchableOpacity
+                    key={pct}
+                    style={[styles.pctBtn, done && styles.pctBtnDone]}
+                    disabled={updatingTaskId === task.id}
+                    onPress={() => updateTask(task.id, pct)}
+                  >
+                    <Text style={[styles.pctText, done && styles.pctTextDone]}>{pct === 100 ? 'Done' : `${pct}%`}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Card>
+        ))
+      )}
+    </>
+  );
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            loadData(true);
+          }}
+          colors={[colors.accent]}
+        />
+      }
       showsVerticalScrollIndicator={false}
     >
-      {/* User Context & Mode Switcher Bar */}
-      <View style={styles.modeBar}>
-        <View style={styles.userContextRow}>
-          <View style={styles.onlineDot} />
-          <Text style={styles.userContextText} numberOfLines={1}>
-            Logged in as <Text style={styles.userBold}>{user?.name || user?.username || 'Super Admin'}</Text>
-          </Text>
-        </View>
+      <Text style={styles.greeting}>
+        {greeting}
+        {firstName ? `, ${firstName}` : ''}
+      </Text>
 
-        {/* View Mode Toggle Pill */}
-        <View style={styles.togglePill}>
+      <View style={styles.segment}>
+        {(['overview', 'workspace'] as const).map((mode) => (
           <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'executive' && styles.toggleBtnActive]}
-            onPress={() => setViewMode('executive')}
+            key={mode}
+            style={[styles.segmentBtn, viewMode === mode && styles.segmentBtnActive]}
+            onPress={() => setViewMode(mode)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.toggleText, viewMode === 'executive' && styles.toggleTextActive]}>
-              Executive Command
+            <Text style={[styles.segmentText, viewMode === mode && styles.segmentTextActive]}>
+              {mode === 'overview' ? 'Overview' : 'My workspace'}
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'employee' && styles.toggleBtnActive]}
-            onPress={() => setViewMode('employee')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.toggleText, viewMode === 'employee' && styles.toggleTextActive]}>
-              My Workspace
-            </Text>
-          </TouchableOpacity>
-        </View>
+        ))}
       </View>
 
-      {/* Error / Offline Alert */}
       {error && (
-        <View style={styles.offlineNotice}>
+        <View style={styles.notice}>
           <AlertTriangle size={15} color={colors.warning} />
-          <Text style={styles.offlineNoticeText}>{error}</Text>
+          <Text style={styles.noticeText}>{error}</Text>
         </View>
       )}
 
-      {viewMode === 'executive' ? (
-        <>
-          {/* Heavy Fabrication & Operations Overview Banner */}
-          <Card style={styles.heroCard}>
-            <View style={styles.badgeRow}>
-              <View style={styles.heroTag}>
-                <Text style={styles.heroTagText}>COMMERCIAL OPERATIONS & 360° JOB TRACEABILITY</Text>
-              </View>
-              <View style={styles.isoTag}>
-                <Text style={styles.isoTagText}>ISO 9001:2015 Verified</Text>
-              </View>
-            </View>
-
-            <Text style={styles.heroTitle}>Heavy Fabrication & Process Equipment Operations</Text>
-            <Text style={styles.heroSubtitle}>
-              Unified orchestrator for Customer Enquiries, Multi-Revision Engineering BOMs, Approved Customer POs, and Shop Floor Fabrication Milestones.
-            </Text>
-
-            {/* 4 Live Metrics in Banner */}
-            <View style={styles.heroMetricsGrid}>
-              <View style={styles.heroMetricItem}>
-                <Text style={styles.heroMetricLabel}>LIVE BACKLOG</Text>
-                <Text style={styles.heroMetricValue}>
-                  ₹ {(metrics?.activeBacklog || 344265).toLocaleString('en-IN')}
-                </Text>
-              </View>
-
-              <View style={styles.heroMetricItem}>
-                <Text style={styles.heroMetricLabel}>ACTIVE BAY WIP</Text>
-                <Text style={styles.heroMetricValue}>
-                  {metrics?.activeFloorCount || 13} Equipment
-                </Text>
-              </View>
-
-              <View style={styles.heroMetricItem}>
-                <Text style={styles.heroMetricLabel}>QA PASS RATE</Text>
-                <Text style={[styles.heroMetricValue, { color: colors.success }]}>
-                  {metrics?.qualityPassRate || 92}% Pass
-                </Text>
-              </View>
-
-              <View style={styles.heroMetricItem}>
-                <Text style={styles.heroMetricLabel}>PRODUCTION HEALTH</Text>
-                <View style={styles.healthRow}>
-                  <View style={styles.healthDot} />
-                  <Text style={[styles.heroMetricValue, { color: colors.success }]}>Nominal</Text>
-                </View>
-              </View>
-            </View>
-          </Card>
-
-          {/* Fabrication Shop Floor Telemetry (Bays 1-4 Active Sync) */}
-          <Card style={styles.telemetryCard}>
-            <View style={styles.telemetryHeader}>
-              <View style={styles.telemetryTitleRow}>
-                <Factory size={18} color={colors.accent} />
-                <View>
-                  <Text style={styles.telemetryTitle}>Fabrication Shop Floor</Text>
-                  <Text style={styles.telemetrySubtitle}>BAYS 1-4 ACTIVE SYNC</Text>
-                </View>
-              </View>
-              <Badge label="Live Telemetry" variant="primary" size="sm" />
-            </View>
-
-            {/* Bays Status List */}
-            <View style={styles.baysList}>
-              {(metrics?.bays || []).map((bay: WorkCenterBay) => {
-                let badgeVariant: 'success' | 'primary' | 'purple' | 'warning' = 'primary';
-                if (bay.status === 'READY') badgeVariant = 'success';
-                else if (bay.status === 'CLEARED') badgeVariant = 'purple';
-                else if (bay.status === 'STANDBY') badgeVariant = 'warning';
-
-                return (
-                  <View key={bay.id} style={styles.bayItem}>
-                    <View style={styles.bayInfo}>
-                      <Text style={styles.bayName}>{bay.name}</Text>
-                      {bay.currentJob && <Text style={styles.bayJob}>{bay.currentJob}</Text>}
-                    </View>
-                    <Badge label={bay.status} variant={badgeVariant} size="sm" />
-                  </View>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity
-              style={styles.traceabilityBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                Alert.alert('360° Traceability Suite', 'Phase 11: Integration & 360° Traceability is scheduled for deep cross-module integration.');
-              }}
-            >
-              <Text style={styles.traceabilityBtnText}>Open 360° Traceability Suite</Text>
-              <ArrowRight size={16} color={colors.textInverse} />
-            </TouchableOpacity>
-          </Card>
-
-          {/* 4 Operational KPI Summary Cards */}
-          <View style={styles.kpiGrid}>
-            <Card style={styles.kpiCard}>
-              <View style={styles.kpiTopRow}>
-                <Text style={styles.kpiLabel}>ACTIVE ORDER BACKLOG</Text>
-                <View style={[styles.kpiIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                  <FileText size={16} color={colors.warning} />
-                </View>
-              </View>
-              <Text style={styles.kpiValue}>
-                ₹ {(metrics?.activeBacklog || 344265).toLocaleString('en-IN')}
-              </Text>
-              <Text style={styles.kpiSub}>MTO Confirmed Backlog</Text>
-            </Card>
-
-            <Card style={styles.kpiCard}>
-              <View style={styles.kpiTopRow}>
-                <Text style={styles.kpiLabel}>SHOP FLOOR WIP</Text>
-                <View style={[styles.kpiIconCircle, { backgroundColor: '#E0F2FE' }]}>
-                  <Activity size={16} color={colors.accent} />
-                </View>
-              </View>
-              <Text style={styles.kpiValue}>
-                {metrics?.activeFloorCount || 13} Equipment
-              </Text>
-              <Text style={styles.kpiSub}>Active Fabrication Jobs</Text>
-            </Card>
-
-            <Card style={styles.kpiCard}>
-              <View style={styles.kpiTopRow}>
-                <Text style={styles.kpiLabel}>EXPEDITE WATCHLIST</Text>
-                <View style={[styles.kpiIconCircle, { backgroundColor: '#FEE2E2' }]}>
-                  <AlertTriangle size={16} color={colors.danger} />
-                </View>
-              </View>
-              <Text style={[styles.kpiValue, { color: colors.danger }]}>
-                {metrics?.expediteCount || 13} Urgent
-              </Text>
-              <Text style={styles.kpiSub}>Critical Path Jobs</Text>
-            </Card>
-
-            <Card style={styles.kpiCard}>
-              <View style={styles.kpiTopRow}>
-                <Text style={styles.kpiLabel}>QUALITY & COMPLIANCE</Text>
-                <View style={[styles.kpiIconCircle, { backgroundColor: '#D1FAE5' }]}>
-                  <ShieldCheck size={16} color={colors.success} />
-                </View>
-              </View>
-              <Text style={[styles.kpiValue, { color: colors.success }]}>
-                {metrics?.qualityPassRate || 92}% Pass
-              </Text>
-              <Text style={styles.kpiSub}>NDT & Hydro Compliance</Text>
-            </Card>
-          </View>
-
-          {/* Stage Distribution Breakdown */}
-          <Card style={styles.stageCard}>
-            <Text style={styles.sectionHeaderTitle}>Production Pipeline Stages</Text>
-            <View style={styles.stageRow}>
-              <View style={styles.stageBox}>
-                <Text style={styles.stageBoxVal}>{metrics?.inPlanningCount || 3}</Text>
-                <Text style={styles.stageBoxName}>Planning & BOM</Text>
-                <View style={[styles.stageIndicator, { backgroundColor: colors.warning }]} />
-              </View>
-
-              <View style={styles.stageBox}>
-                <Text style={styles.stageBoxVal}>{metrics?.inFabCount || 6}</Text>
-                <Text style={styles.stageBoxName}>Fabrication</Text>
-                <View style={[styles.stageIndicator, { backgroundColor: colors.accent }]} />
-              </View>
-
-              <View style={styles.stageBox}>
-                <Text style={styles.stageBoxVal}>{metrics?.inQcCount || 2}</Text>
-                <Text style={styles.stageBoxName}>NDT / QC</Text>
-                <View style={[styles.stageIndicator, { backgroundColor: colors.purple }]} />
-              </View>
-
-              <View style={styles.stageBox}>
-                <Text style={styles.stageBoxVal}>{metrics?.readyDispatchCount || 2}</Text>
-                <Text style={styles.stageBoxName}>Dispatch</Text>
-                <View style={[styles.stageIndicator, { backgroundColor: colors.success }]} />
-              </View>
-            </View>
-          </Card>
-
-          {/* Active Jobs Search & Filter Bar */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Active MTO Project Jobs</Text>
-            <Text style={styles.sectionMeta}>{filteredJobs.length} Jobs Listed</Text>
-          </View>
-
-          <View style={styles.searchContainer}>
-            <Search size={16} color={colors.textMuted} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by Job #, Customer, or Equipment..."
-              placeholderTextColor={colors.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-
-          {/* Stage Filter Chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
-            {[
-              { id: 'All', label: 'All Jobs' },
-              { id: 'PLAN', label: 'Planning' },
-              { id: 'FAB', label: 'Fabrication' },
-              { id: 'QUAL', label: 'QC & NDT' },
-              { id: 'READY', label: 'Ready Dispatch' },
-            ].map((chip) => {
-              const isSelected = stageFilter === chip.id;
-              return (
-                <TouchableOpacity
-                  key={chip.id}
-                  style={[styles.filterChip, isSelected && styles.filterChipActive]}
-                  onPress={() => setStageFilter(chip.id as any)}
-                >
-                  <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
-                    {chip.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* Active Job Cards */}
-          {filteredJobs.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Briefcase size={36} color={colors.textMuted} />
-              <Text style={styles.emptyTitle}>No matching jobs found</Text>
-              <Text style={styles.emptySub}>Adjust search filters or refresh from backend.</Text>
-            </Card>
-          ) : (
-            filteredJobs.map((job: ProjectJob, idx: number) => {
-              const jobId = job.jobNumber || job.projectNumber || job.id || `JOB-2026-00${idx + 1}`;
-              const progress = job.progressPercent || 45;
-              const stage = (job.currentStage || job.stage || job.status || 'PLANNING').toUpperCase();
-
-              let badgeVariant: 'primary' | 'success' | 'warning' | 'purple' = 'primary';
-              if (stage.includes('QUAL') || stage.includes('QC')) badgeVariant = 'purple';
-              else if (stage.includes('STORE') || stage.includes('DISPATCH')) badgeVariant = 'success';
-              else if (stage.includes('PLAN')) badgeVariant = 'warning';
-
-              return (
-                <Card key={job.id || idx} style={styles.jobCard}>
-                  <View style={styles.jobTopRow}>
-                    <View>
-                      <Text style={styles.jobIdText}>{jobId}</Text>
-                      <Text style={styles.jobCustomer}>{job.customerName || 'Direct Industrial Client'}</Text>
-                    </View>
-                    <Badge label={stage} variant={badgeVariant} size="sm" />
-                  </View>
-
-                  <Text style={styles.jobEquipment}>
-                    {job.productName || job.projectName || 'Heavy Pressure Vessel Assembly'}
-                  </Text>
-
-                  <View style={styles.jobMetaRow}>
-                    <Text style={styles.jobValue}>
-                      ₹ {Number(job.orderValue || 185000).toLocaleString('en-IN')}
-                    </Text>
-                    <Text style={styles.jobDelivery}>
-                      Due: {job.deliveryDate || job.targetDeliveryDate || 'TBD'}
-                    </Text>
-                  </View>
-
-                  {/* Progress Bar */}
-                  <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: `${Math.min(100, progress)}%` }]} />
-                  </View>
-                  <View style={styles.progressLabelRow}>
-                    <Text style={styles.progressText}>Stage Completion</Text>
-                    <Text style={styles.progressPercent}>{progress}%</Text>
-                  </View>
-                </Card>
-              );
-            })
-          )}
-        </>
-      ) : (
-        /* Employee Workspace Dashboard Mode */
-        <View style={styles.employeeWorkspace}>
-          {/* Digital Clock & Shift Card */}
-          <Card style={styles.clockCard}>
-            <View style={styles.clockRow}>
-              <View>
-                <Text style={styles.dateText}>{todayStr}</Text>
-                <Text style={styles.digitalClock}>{currentTime}</Text>
-                <Text style={styles.shiftName}>General Day Shift (09:00 - 18:00)</Text>
-              </View>
-
-              <View style={styles.punchActionContainer}>
-                {employeeData?.todayAttendance?.checkIn ? (
-                  <TouchableOpacity
-                    style={[styles.punchBtn, styles.punchOutBtn]}
-                    onPress={handlePunchOut}
-                    disabled={punchLoading}
-                  >
-                    {punchLoading ? (
-                      <ActivityIndicator color={colors.textInverse} size="small" />
-                    ) : (
-                      <>
-                        <Square size={16} color={colors.textInverse} />
-                        <Text style={styles.punchBtnText}>Punch Out</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.punchBtn, styles.punchInBtn]}
-                    onPress={handlePunchIn}
-                    disabled={punchLoading}
-                  >
-                    {punchLoading ? (
-                      <ActivityIndicator color={colors.textInverse} size="small" />
-                    ) : (
-                      <>
-                        <Play size={16} color={colors.textInverse} />
-                        <Text style={styles.punchBtnText}>Punch In</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* Attendance Status Bar */}
-            <View style={styles.attendanceStatusBar}>
-              <View style={styles.attendanceCol}>
-                <Text style={styles.attendanceColLabel}>Punch In</Text>
-                <Text style={styles.attendanceColVal}>
-                  {employeeData?.todayAttendance?.checkIn || 'Not Punched'}
-                </Text>
-              </View>
-              <View style={styles.attendanceCol}>
-                <Text style={styles.attendanceColLabel}>Punch Out</Text>
-                <Text style={styles.attendanceColVal}>
-                  {employeeData?.todayAttendance?.checkOut || '—'}
-                </Text>
-              </View>
-              <View style={styles.attendanceCol}>
-                <Text style={styles.attendanceColLabel}>Status</Text>
-                <Text style={[styles.attendanceColVal, { color: colors.success }]}>
-                  {employeeData?.todayAttendance?.status || 'Active Session'}
-                </Text>
-              </View>
-            </View>
-          </Card>
-
-          {/* Assigned Tasks Section */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>My Assigned Tasks</Text>
-            <Text style={styles.sectionMeta}>
-              {employeeData?.tasksSummary?.totalAssigned || 2} Pending
-            </Text>
-          </View>
-
-          {/* Interactive Assigned Task Cards */}
-          {(employeeData?.tasksSummary?.recentTasks || [
-            {
-              id: 'TASK-001',
-              title: 'Review Engineering 2D Drawing for Reactor Shell',
-              priority: 'urgent',
-              status: 'In Progress',
-              progressPercent: 60,
-              dueDate: 'Today',
-            },
-            {
-              id: 'TASK-002',
-              title: 'Hydrostatic Pressure Test Inspection Sign-off',
-              priority: 'high',
-              status: 'Assigned',
-              progressPercent: 30,
-              dueDate: 'Tomorrow',
-            },
-          ]).map((task: any) => {
-            const isUpdating = updatingTaskId === task.id;
-            return (
-              <Card key={task.id} style={styles.taskCard}>
-                <View style={styles.taskTopRow}>
-                  <Text style={styles.taskTitle}>{task.title}</Text>
-                  <Badge
-                    label={task.priority?.toUpperCase()}
-                    variant={task.priority === 'urgent' ? 'danger' : 'warning'}
-                    size="sm"
-                  />
-                </View>
-
-                <View style={styles.taskDueRow}>
-                  <Clock size={13} color={colors.textMuted} />
-                  <Text style={styles.taskDueText}>Due: {task.dueDate || 'Standard SLA'}</Text>
-                </View>
-
-                {/* Interactive Progress Slider Buttons */}
-                <View style={styles.taskProgressSection}>
-                  <View style={styles.progressLabelRow}>
-                    <Text style={styles.progressText}>Current Progress</Text>
-                    <Text style={styles.progressPercent}>{task.progressPercent}%</Text>
-                  </View>
-                  <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: `${task.progressPercent}%` }]} />
-                  </View>
-
-                  <View style={styles.taskActionRow}>
-                    {[25, 50, 75, 100].map((pct) => (
-                      <TouchableOpacity
-                        key={pct}
-                        style={[
-                          styles.pctBtn,
-                          task.progressPercent >= pct && styles.pctBtnDone,
-                        ]}
-                        disabled={isUpdating}
-                        onPress={() => handleUpdateTask(task.id, pct)}
-                      >
-                        <Text
-                          style={[
-                            styles.pctBtnText,
-                            task.progressPercent >= pct && styles.pctBtnTextDone,
-                          ]}
-                        >
-                          {pct === 100 ? 'Submit 100%' : `${pct}%`}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              </Card>
-            );
-          })}
-        </View>
-      )}
+      {viewMode === 'overview' ? renderOverview() : renderWorkspace()}
     </ScrollView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxxl,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    padding: spacing.xl,
-  },
-  loadingText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.primary,
-    marginTop: spacing.md,
-  },
-  loadingSub: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  modeBar: {
-    marginBottom: spacing.md,
-  },
-  userContextRow: {
+const styles = themedStyles(() => StyleSheet.create({
+  flex: { flex: 1 },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  centerText: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
+
+  greeting: { fontSize: 24, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.md },
+  segment: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  onlineDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colors.success,
-    marginRight: 6,
-  },
-  userContextText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  userBold: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  togglePill: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 3,
-    marginTop: 4,
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: borderRadius.sm,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  toggleTextActive: {
-    color: colors.textInverse,
-  },
-  offlineNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warningLight,
-    borderWidth: 1,
-    borderColor: colors.warningBorder,
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
-    gap: 6,
-    marginBottom: spacing.md,
-  },
-  offlineNoticeText: {
-    fontSize: 11,
-    color: colors.warning,
-    flex: 1,
-    fontWeight: '600',
-  },
-  heroCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  heroTag: {
-    backgroundColor: colors.bronzeLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: '#E7DED5',
-  },
-  heroTagText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: colors.bronze,
-    letterSpacing: 0.4,
-  },
-  isoTag: {
     backgroundColor: colors.surfaceSubtle,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  isoTagText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  heroTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: colors.textPrimary,
-    lineHeight: 22,
-    letterSpacing: 0.2,
-    marginBottom: 4,
-  },
-  heroSubtitle: {
-    fontSize: 11.5,
-    color: colors.textSecondary,
-    lineHeight: 16,
-    marginBottom: spacing.md,
-  },
-  heroMetricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: colors.background,
     borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.md,
+    padding: 4,
+    marginBottom: spacing.lg,
   },
-  heroMetricItem: {
-    width: '45%',
-  },
-  heroMetricLabel: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  heroMetricValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  healthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  healthDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.success,
-  },
-  telemetryCard: {
-    marginBottom: spacing.md,
-    backgroundColor: '#FFFFFF',
-  },
-  telemetryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  telemetryTitleRow: {
+  segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: borderRadius.sm, alignItems: 'center' },
+  segmentBtnActive: { backgroundColor: colors.surface, ...shadows.sm },
+  segmentText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+  segmentTextActive: { color: colors.textPrimary },
+  notice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  telemetryTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  telemetrySubtitle: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: colors.textMuted,
-    letterSpacing: 0.4,
-  },
-  baysList: {
-    gap: spacing.xs,
+    backgroundColor: colors.warningLight,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
     marginBottom: spacing.md,
   },
-  bayItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surfaceSubtle,
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+  noticeText: { flex: 1, fontSize: 12, color: colors.warning, fontWeight: '600' },
+
+  hero: {
+    backgroundColor: colors.header,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    ...shadows.md,
   },
-  bayInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  bayName: {
+  heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: 'rgba(255,255,255,0.6)' },
+  heroValue: { fontSize: 32, fontWeight: '900', color: colors.textInverse, marginTop: 4, marginBottom: spacing.lg },
+  heroRow: { flexDirection: 'row', gap: spacing.md },
+  stat: { flex: 1 },
+  statLabel: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+  statValue: { fontSize: 20, fontWeight: '800', color: colors.textInverse, marginTop: 2 },
+  statHint: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
+
+  section: { marginBottom: spacing.lg },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.md },
+  pipeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  pipeLabel: { width: 78, fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  pipeTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.surfaceSubtle, overflow: 'hidden' },
+  pipeFill: { height: '100%', borderRadius: 4 },
+  pipeValue: { width: 26, textAlign: 'right', fontSize: 13, fontWeight: '800', color: colors.textPrimary },
+
+  bayRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  rowDivider: { borderTopWidth: 1, borderTopColor: colors.borderLight },
+  bayName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  bayMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+
+  listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  listTitle: { fontSize: 17, fontWeight: '800', color: colors.textPrimary },
+  listCount: {
     fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontWeight: '800',
+    color: colors.accentDark,
+    backgroundColor: colors.accentLight,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
   },
-  bayJob: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  traceabilityBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm + 2,
+  search: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    height: 46,
+    marginBottom: spacing.md,
     ...shadows.sm,
   },
-  traceabilityBtnText: {
-    color: colors.textInverse,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  kpiCard: {
-    width: '48.5%',
-    padding: spacing.md,
-  },
-  kpiTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  kpiLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 0.4,
-    flex: 1,
-  },
-  kpiIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  kpiValue: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-    marginTop: 2,
-  },
-  kpiSub: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  stageCard: {
-    marginBottom: spacing.md,
-  },
-  sectionHeaderTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  stageRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  stageBox: {
-    flex: 1,
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.sm,
-    padding: spacing.xs + 2,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  stageBoxVal: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  stageBoxName: {
-    fontSize: 9,
-    color: colors.textMuted,
-    fontWeight: '700',
-    marginTop: 1,
-    textAlign: 'center',
-  },
-  stageIndicator: {
-    width: '100%',
-    height: 3,
-    borderRadius: 1.5,
-    marginTop: 4,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs + 2,
-    marginTop: spacing.xs,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  sectionMeta: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    height: 40,
-    marginBottom: spacing.sm,
-  },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.textPrimary,
-  },
-  filterChipScroll: {
-    marginBottom: spacing.md,
-  },
-  filterChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+  searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
+  chips: { marginBottom: spacing.md, flexGrow: 0 },
+  chipsContent: { gap: spacing.sm },
+  chip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
     borderRadius: borderRadius.full,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    marginRight: spacing.xs,
   },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  filterChipTextActive: {
-    color: colors.textInverse,
-  },
-  jobCard: {
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-  },
-  jobTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  jobIdText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  jobCustomer: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  jobEquipment: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginVertical: 4,
-  },
-  jobMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  jobValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  jobDelivery: {
-    fontSize: 10.5,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  progressBarBg: {
-    height: 6,
-    backgroundColor: colors.borderLight,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginTop: 2,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: 3,
-  },
-  progressLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  progressText: {
-    fontSize: 10,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  progressPercent: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginTop: spacing.sm,
-  },
-  emptySub: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  employeeWorkspace: {
-    gap: spacing.md,
-  },
-  clockCard: {
-    backgroundColor: '#FFFFFF',
-  },
-  clockRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  dateText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  digitalClock: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: colors.primary,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    letterSpacing: 0.5,
-    marginVertical: 2,
-  },
-  shiftName: {
-    fontSize: 10.5,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  punchActionContainer: {
-    minWidth: 100,
-  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+  chipTextActive: { color: colors.textInverse },
+
+  jobCard: { marginBottom: spacing.md },
+  jobTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  jobNumber: { fontSize: 15, fontWeight: '800', color: colors.primary },
+  jobCustomer: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  jobProduct: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginVertical: spacing.sm },
+  jobMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
+  jobValue: { fontSize: 14, fontWeight: '800', color: colors.textPrimary },
+  jobDue: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
+  dueRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm },
+  track: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceSubtle, overflow: 'hidden' },
+  trackFill: { height: '100%', borderRadius: 3, backgroundColor: colors.accent },
+  trackLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '600', marginTop: 4 },
+
+  empty: { alignItems: 'center', paddingVertical: spacing.xxxl, gap: spacing.sm },
+  emptyTitle: { fontSize: 15, fontWeight: '800', color: colors.textPrimary },
+  emptySub: { fontSize: 12, color: colors.textMuted },
+
+  clockCard: { alignItems: 'center', marginBottom: spacing.lg, paddingVertical: spacing.xl },
+  clockDate: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
+  clockTime: { fontSize: 44, fontWeight: '900', color: colors.primary, marginVertical: spacing.sm },
   punchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    alignSelf: 'stretch',
+    height: 50,
     borderRadius: borderRadius.md,
-    gap: 6,
-    ...shadows.sm,
-  },
-  punchInBtn: {
-    backgroundColor: colors.success,
-  },
-  punchOutBtn: {
-    backgroundColor: colors.danger,
-  },
-  punchBtnText: {
-    color: colors.textInverse,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  attendanceStatusBar: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-    paddingTop: spacing.sm,
-  },
-  attendanceCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  attendanceColLabel: {
-    fontSize: 9.5,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  attendanceColVal: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginTop: 2,
-  },
-  taskCard: {
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-  },
-  taskTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  taskTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  taskDueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: spacing.sm,
-  },
-  taskDueText: {
-    fontSize: 10.5,
-    color: colors.textMuted,
-  },
-  taskProgressSection: {
-    marginTop: 4,
-  },
-  taskActionRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
     marginTop: spacing.sm,
   },
+  punchIn: { backgroundColor: colors.success },
+  punchOut: { backgroundColor: colors.danger },
+  punchText: { color: colors.textInverse, fontSize: 15, fontWeight: '800' },
+  attRow: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  attCol: { flex: 1, alignItems: 'center' },
+  attLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '700' },
+  attValue: { fontSize: 14, fontWeight: '800', color: colors.textPrimary, marginTop: 2 },
+
+  pctRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   pctBtn: {
     flex: 1,
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: borderRadius.sm,
-    paddingVertical: 6,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingVertical: 9,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.surfaceSubtle,
   },
-  pctBtnDone: {
-    backgroundColor: colors.primarySubtle,
-    borderColor: colors.primary,
-  },
-  pctBtnText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  pctBtnTextDone: {
-    color: colors.primary,
-  },
-});
+  pctBtnDone: { backgroundColor: colors.accentLight },
+  pctText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
+  pctTextDone: { color: colors.accentDark },
+}));

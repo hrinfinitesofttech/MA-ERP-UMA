@@ -10,38 +10,26 @@ import {
   RefreshControl,
   Modal,
   Alert,
-  FlatList,
   Platform,
 } from 'react-native';
 import {
   Users,
-  UserPlus,
   FileText,
   Phone,
-  Mail,
   MapPin,
   Calendar,
   Clock,
-  ArrowRight,
   Plus,
   Search,
-  Filter,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
   Building,
   Check,
   X,
   Sparkles,
   ChevronRight,
   TrendingUp,
-  Tag,
-  DollarSign,
-  Briefcase,
-  Layers,
-  Send,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
@@ -113,7 +101,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
       if (quoRes.status === 'fulfilled') setQuotations(quoRes.value);
       if (soRes.status === 'fulfilled') setSalesOrders(soRes.value);
     } catch (err) {
-      console.warn('Error loading CRM records from backend:', err);
+      // errors are surfaced through the error banner below
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -237,7 +225,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
           contactPerson: formContactPerson.trim(),
           mobile: formMobile.trim(),
           email: formEmail.trim(),
-          productName: formProduct.trim() || 'Process Machinery',
+          productName: formProduct.trim() || '',
           remarks: formRemarks.trim(),
         });
         Alert.alert('Success', 'New lead registered successfully.');
@@ -246,8 +234,8 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
           customerName: formCompanyName.trim(),
           contactPerson: formContactPerson.trim(),
           contactMobile: formMobile.trim(),
-          machineProduct: formProduct.trim() || 'Custom Equipment',
-          requirement: formRemarks.trim() || 'Commercial enquiry specs',
+          machineProduct: formProduct.trim() || '',
+          requirement: formRemarks.trim() || '',
           budget: Number(formAmount) || 0,
         });
         Alert.alert('Success', 'Enquiry recorded successfully.');
@@ -256,7 +244,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
           leadOrCustomerName: formCompanyName.trim(),
           leadOrCustomerId: 'REF-001',
           date: new Date().toISOString().split('T')[0],
-          purpose: formProduct.trim() || 'Commercial Follow-up',
+          purpose: formProduct.trim() || '',
           notes: formRemarks.trim(),
         });
         Alert.alert('Success', 'Follow-up logged successfully.');
@@ -266,16 +254,16 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
           contactPerson: formContactPerson.trim(),
           contactMobile: formMobile.trim(),
           contactEmail: formEmail.trim(),
-          machineProduct: formProduct.trim() || 'Fabrication Equipment',
+          machineProduct: formProduct.trim() || '',
           date: new Date().toISOString().split('T')[0],
-          subtotal: Number(formAmount) || 250000,
+          subtotal: Number(formAmount) || 0,
         });
         Alert.alert('Success', 'Quotation drafted successfully.');
       } else if (activeTab === 'sales_orders') {
         await crmApi.createSalesOrder({
           customerName: formCompanyName.trim(),
           orderDate: new Date().toISOString().split('T')[0],
-          grandTotal: Number(formAmount) || 350000,
+          grandTotal: Number(formAmount) || 0,
           customerPoNumber: formRemarks.trim() || 'PO-VERIFIED',
         });
         Alert.alert('Success', 'Sales Order confirmed successfully.');
@@ -473,9 +461,9 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
                   <Card key={lead.id || idx} style={styles.recordCard}>
                     <TouchableOpacity onPress={() => setSelectedLead(lead)} activeOpacity={0.8}>
                       <View style={styles.cardHeaderRow}>
-                        <View>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
                           <Text style={styles.codeText}>{lead.leadNo || lead.id || `LEAD-00${idx + 1}`}</Text>
-                          <Text style={styles.cardTitle}>{lead.companyName || 'Industrial Client'}</Text>
+                          <Text style={styles.cardTitle}>{lead.companyName || '—'}</Text>
                         </View>
                         <Badge
                           label={(lead.status || 'new').toUpperCase()}
@@ -485,7 +473,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
                       </View>
 
                       <Text style={styles.productText}>
-                        {lead.productName || 'Heavy Engineering Equipment'} {lead.quantity ? `• Qty: ${lead.quantity}` : ''}
+                        {lead.productName || '—'} {lead.quantity ? `• Qty: ${lead.quantity}` : ''}
                       </Text>
 
                       <View style={styles.contactRow}>
@@ -541,7 +529,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
                   <Card key={cust.id || idx} style={styles.recordCard}>
                     <TouchableOpacity onPress={() => setSelectedCustomer(cust)} activeOpacity={0.8}>
                       <View style={styles.cardHeaderRow}>
-                        <View>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
                           <Text style={styles.codeText}>{cust.customerCode || cust.id || `CUST-00${idx + 1}`}</Text>
                           <Text style={styles.cardTitle}>{cust.companyName}</Text>
                         </View>
@@ -558,7 +546,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
 
                       <View style={styles.cardFooterRow}>
                         <Text style={styles.metaLabel}>GSTIN: {cust.gstin || 'Unregistered'}</Text>
-                        <Text style={styles.metaLabel}>{cust.paymentTerms || 'Standard Terms'}</Text>
+                        <Text style={styles.metaLabel}>{cust.paymentTerms || '—'}</Text>
                       </View>
                     </TouchableOpacity>
                   </Card>
@@ -579,7 +567,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
                 .map((enq, idx) => (
                   <Card key={enq.id || idx} style={styles.recordCard}>
                     <View style={styles.cardHeaderRow}>
-                      <View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
                         <Text style={styles.codeText}>{enq.enquiryNo || enq.id}</Text>
                         <Text style={styles.cardTitle}>{enq.customerName}</Text>
                       </View>
@@ -603,7 +591,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
               followups.map((flw, idx) => (
                 <Card key={flw.id || idx} style={styles.recordCard}>
                   <View style={styles.cardHeaderRow}>
-                    <View>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
                       <Text style={styles.codeText}>{flw.followUpNo || `FLW-00${idx + 1}`}</Text>
                       <Text style={styles.cardTitle}>{flw.leadOrCustomerName}</Text>
                     </View>
@@ -642,7 +630,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
                     <Card key={quo.id || idx} style={styles.recordCard}>
                       <TouchableOpacity onPress={() => setSelectedQuotation(quo)} activeOpacity={0.8}>
                         <View style={styles.cardHeaderRow}>
-                          <View>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
                             <Text style={styles.codeText}>{quo.quotationNumber || quo.id} ({quo.currentRevision || 'Rev-00'})</Text>
                             <Text style={styles.cardTitle}>{quo.customerName}</Text>
                           </View>
@@ -653,11 +641,11 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
                           />
                         </View>
 
-                        <Text style={styles.productText}>{quo.machineProduct || 'Process Machinery Scope'}</Text>
+                        <Text style={styles.productText}>{quo.machineProduct || '—'}</Text>
 
                         <View style={styles.cardFooterRow}>
                           <Text style={styles.amountText}>
-                            ₹ {(quo.grandTotal || quo.grand_total || quo.subtotal || 245000).toLocaleString('en-IN')}
+                            ₹ {(quo.grandTotal || quo.grand_total || quo.subtotal || 0).toLocaleString('en-IN')}
                           </Text>
                           <View style={styles.actionBtnRow}>
                             {!isApproved && (
@@ -699,7 +687,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
                   <Card key={so.id || idx} style={styles.recordCard}>
                     <TouchableOpacity onPress={() => setSelectedSalesOrder(so)} activeOpacity={0.8}>
                       <View style={styles.cardHeaderRow}>
-                        <View>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
                           <Text style={styles.codeText}>{so.salesOrderNumber || so.id}</Text>
                           <Text style={styles.cardTitle}>{so.customerName}</Text>
                         </View>
@@ -715,9 +703,9 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
 
                       <View style={styles.cardFooterRow}>
                         <Text style={styles.amountText}>
-                          ₹ {(so.grandTotal || so.grand_total || so.totalAmount || 350000).toLocaleString('en-IN')}
+                          ₹ {(so.grandTotal || so.grand_total || so.totalAmount || 0).toLocaleString('en-IN')}
                         </Text>
-                        <Text style={styles.metaLabel}>{so.paymentTerms || 'Confirmed Terms'}</Text>
+                        <Text style={styles.metaLabel}>{so.paymentTerms || '—'}</Text>
                       </View>
                     </TouchableOpacity>
                   </Card>
@@ -791,7 +779,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
             <ScrollView style={styles.modalBody}>
               <View style={styles.detailSection}>
                 <Text style={styles.detailLabel}>Equipment Scope</Text>
-                <Text style={styles.detailVal}>{selectedQuotation?.machineProduct || 'Process Equipment'}</Text>
+                <Text style={styles.detailVal}>{selectedQuotation?.machineProduct || '—'}</Text>
               </View>
               <View style={styles.detailSection}>
                 <Text style={styles.detailLabel}>Financial Totals</Text>
@@ -942,7 +930,7 @@ export const CRMSalesScreen: React.FC<{ onBackToDashboard?: () => void }> = ({ o
   );
 };
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1296,4 +1284,4 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.textPrimary,
   },
-});
+}));

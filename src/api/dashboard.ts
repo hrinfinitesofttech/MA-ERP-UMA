@@ -1,136 +1,93 @@
 import { apiClient } from './client';
-import {
-  DashboardMetrics,
-  EmployeeDashboardData,
-  ManufacturingJob,
-  ProjectJob,
-  WorkCenterBay,
-} from './types';
+import { DashboardJob, DashboardMetrics, EmployeeDashboardData, WorkCenterBay } from './types';
+
+const toList = (res: PromiseSettledResult<{ data: any }>): any[] => {
+  if (res.status !== 'fulfilled') return [];
+  const data = res.value.data;
+  if (Array.isArray(data)) return data;
+  return Array.isArray(data?.results) ? data.results : [];
+};
+
+const num = (v: unknown): number => Number(v) || 0;
+const pick = (o: any, ...keys: string[]) => {
+  for (const k of keys) if (o?.[k] !== undefined && o?.[k] !== null && o?.[k] !== '') return o[k];
+  return undefined;
+};
+
+const statusOf = (p: any): string => String(pick(p, 'current_status', 'currentStage', 'stage', 'status') ?? '').toLowerCase();
+const isClosed = (s: string) => ['completed', 'delivered', 'cancelled', 'closed'].some((k) => s.includes(k));
+const isPlanning = (s: string) => ['plan', 'design', 'bom', 'material', 'purchase'].some((k) => s.includes(k));
+const isFabrication = (s: string) => ['fab', 'prod', 'weld', 'machin'].some((k) => s.includes(k));
+const isQuality = (s: string) => ['qual', 'qc', 'test', 'inspect', 'ndt'].some((k) => s.includes(k));
+const isDispatch = (s: string) => ['dispatch', 'ready', 'store'].some((k) => s.includes(k));
+
+const toJob = (p: any): DashboardJob => ({
+  id: String(p.id),
+  jobNumber: pick(p, 'job_number', 'jobNumber', 'project_number', 'projectNumber') ?? '—',
+  customerName: pick(p, 'customer_name', 'customerName') ?? '—',
+  productName: pick(p, 'product_name', 'productName', 'project_name', 'projectName') ?? '—',
+  orderValue: num(pick(p, 'order_value', 'orderValue')),
+  dueDate: pick(p, 'target_delivery_date', 'targetDeliveryDate', 'delivery_date', 'deliveryDate') ?? '—',
+  progressPercent: Math.min(100, Math.max(0, num(pick(p, 'progress_percent', 'progressPercent')))),
+  status: statusOf(p) || '—',
+  priority: String(pick(p, 'priority') ?? '').toLowerCase(),
+  health: String(pick(p, 'health_status', 'healthStatus') ?? '').toLowerCase(),
+});
+
+const toBay = (w: any): WorkCenterBay => {
+  const eff = pick(w, 'efficiency_percent', 'efficiencyPercent');
+  return {
+    id: String(w.id),
+    name: pick(w, 'work_center_name', 'workCenterName', 'name') ?? '—',
+    location: pick(w, 'location', 'department') ?? '',
+    status: pick(w, 'status') ?? '—',
+    efficiency: eff === undefined ? null : num(eff),
+  };
+};
 
 export const dashboardApi = {
-  // Executive Manufacturing Dashboard Data
+  // Executive dashboard: every figure is derived from live backend data.
   getExecutiveDashboard: async (): Promise<DashboardMetrics> => {
-    // Concurrent fetch from live backend endpoints with safe fallbacks
-    const [projectsRes, salesOrdersRes, mfgJobsRes, workCentersRes] = await Promise.allSettled([
+    const [projectsRes, salesOrdersRes, workCentersRes, qcRes] = await Promise.allSettled([
       apiClient.get('/projects/'),
       apiClient.get('/sales-orders/'),
-      apiClient.get('/manufacturing-jobs/'),
       apiClient.get('/work-centers/'),
+      apiClient.get('/qc-inspections/'),
     ]);
 
-    const rawProjects: ProjectJob[] =
-      projectsRes.status === 'fulfilled' && Array.isArray(projectsRes.value.data)
-        ? projectsRes.value.data
-        : (projectsRes.status === 'fulfilled' && Array.isArray(projectsRes.value.data?.results)
-            ? projectsRes.value.data.results
-            : []);
+    if (projectsRes.status === 'rejected' && salesOrdersRes.status === 'rejected') {
+      throw projectsRes.reason;
+    }
 
-    const rawSalesOrders =
-      salesOrdersRes.status === 'fulfilled' && Array.isArray(salesOrdersRes.value.data)
-        ? salesOrdersRes.value.data
-        : (salesOrdersRes.status === 'fulfilled' && Array.isArray(salesOrdersRes.value.data?.results)
-            ? salesOrdersRes.value.data.results
-            : []);
+    const projects = toList(projectsRes);
+    const salesOrders = toList(salesOrdersRes);
+    const active = projects.filter((p) => !isClosed(statusOf(p)));
 
-    const rawMfgJobs: ManufacturingJob[] =
-      mfgJobsRes.status === 'fulfilled' && Array.isArray(mfgJobsRes.value.data)
-        ? mfgJobsRes.value.data
-        : (mfgJobsRes.status === 'fulfilled' && Array.isArray(mfgJobsRes.value.data?.results)
-            ? mfgJobsRes.value.data.results
-            : []);
-
-    // 1. Calculate Active Backlog matching web formula:
-    // salesOrders.reduce((sum, so) => sum + orderValue) or projectJobs.reduce
-    const backlogFromSO = rawSalesOrders.reduce(
-      (sum: number, so: any) => sum + (Number(so.grand_total || so.orderValue || so.totalAmount || 0) || 0),
+    const soTotal = salesOrders.reduce(
+      (sum, so) => sum + num(pick(so, 'grand_total', 'grandTotal', 'totalAmount', 'total_amount', 'orderValue')),
       0
     );
-    const backlogFromProjects = rawProjects.reduce(
-      (sum: number, pj: any) => sum + (Number(pj.orderValue || pj.order_value || 0) || 0),
-      0
-    );
-    const activeBacklog = backlogFromSO > 0 ? backlogFromSO : (backlogFromProjects > 0 ? backlogFromProjects : 344265);
+    const projectTotal = active.reduce((sum, p) => sum + num(pick(p, 'order_value', 'orderValue')), 0);
 
-    // 2. Active Floor Count
-    const activeFloorCount = rawMfgJobs.length > 0 ? rawMfgJobs.length : (rawProjects.length > 0 ? rawProjects.length : 13);
-
-    // 3. Expedite / Urgent Priority Watchlist
-    const urgentProjects = rawProjects.filter(
-      (p) => p.priority === 'urgent' || p.priority === 'high' || p.status === 'delayed'
-    );
-    const expediteCount = urgentProjects.length > 0 ? urgentProjects.length : 13;
-
-    // 4. Quality & Compliance pass rate
-    const qualityPassRate = 92;
-
-    // 5. Stage distribution
-    const inPlanningCount = rawProjects.filter((p) => {
-      const stg = (p.currentStage || p.stage || p.status || '').toLowerCase();
-      return stg.includes('plan') || stg.includes('design') || stg.includes('bom');
-    }).length || 3;
-
-    const inFabCount = rawProjects.filter((p) => {
-      const stg = (p.currentStage || p.stage || p.status || '').toLowerCase();
-      return stg.includes('fab') || stg.includes('prod') || stg.includes('weld');
-    }).length || 6;
-
-    const inQcCount = rawProjects.filter((p) => {
-      const stg = (p.currentStage || p.stage || p.status || '').toLowerCase();
-      return stg.includes('qual') || stg.includes('qc') || stg.includes('test') || stg.includes('inspect');
-    }).length || 2;
-
-    const readyDispatchCount = rawProjects.filter((p) => {
-      const stg = (p.currentStage || p.stage || p.status || '').toLowerCase();
-      return stg.includes('store') || stg.includes('dispatch') || stg.includes('ready') || stg.includes('deliv');
-    }).length || 2;
-
-    // 6. Fabrication Shop Floor Bays Telemetry
-    const bays: WorkCenterBay[] = [
-      {
-        id: 'bay-1',
-        bayNumber: 1,
-        name: 'Bay 1: CNC Cutting & Rolling',
-        operation: 'Plate Cutting & Edge Prep',
-        status: 'READY',
-        currentJob: 'JOB-2026-001 (Shell Rolling)',
-      },
-      {
-        id: 'bay-2',
-        bayNumber: 2,
-        name: 'Bay 2: SAW / TIG Welding',
-        operation: 'Longitudinal Seam Welding',
-        status: 'IN PROGRESS',
-        currentJob: 'JOB-2026-004 (Reactor Vessel)',
-      },
-      {
-        id: 'bay-3',
-        bayNumber: 3,
-        name: 'Bay 3: Hydro Test & NDT',
-        operation: 'Pressure & Radiography Testing',
-        status: 'CLEARED',
-        currentJob: 'JOB-2026-002 (Storage Tank)',
-      },
-      {
-        id: 'bay-4',
-        bayNumber: 4,
-        name: 'Bay 4: Surface Blast & Paint',
-        operation: 'Polyurethane Coating Finish',
-        status: 'STANDBY',
-        currentJob: 'JOB-2026-003 (Heat Exchanger)',
-      },
-    ];
+    const qc = toList(qcRes);
+    const decided = qc.filter((q) => ['pass', 'fail'].includes(String(pick(q, 'overall_result', 'qcResult') ?? '').toLowerCase()));
+    const passed = decided.filter((q) => String(pick(q, 'overall_result', 'qcResult')).toLowerCase() === 'pass').length;
 
     return {
-      activeBacklog,
-      activeFloorCount,
-      expediteCount,
-      qualityPassRate,
-      inPlanningCount,
-      inFabCount,
-      inQcCount,
-      readyDispatchCount,
-      bays,
-      recentJobs: rawProjects.slice(0, 10),
+      activeBacklog: soTotal > 0 ? soTotal : projectTotal,
+      activeProjects: active.length,
+      expediteCount: active.filter(
+        (p) => ['urgent', 'high'].includes(String(p.priority ?? '').toLowerCase()) || ['delayed', 'critical'].includes(String(pick(p, 'health_status', 'healthStatus') ?? '').toLowerCase())
+      ).length,
+      qualityPassRate: decided.length > 0 ? Math.round((passed / decided.length) * 100) : null,
+      stageCounts: {
+        planning: active.filter((p) => isPlanning(statusOf(p))).length,
+        fabrication: active.filter((p) => isFabrication(statusOf(p))).length,
+        quality: active.filter((p) => isQuality(statusOf(p))).length,
+        dispatch: active.filter((p) => isDispatch(statusOf(p))).length,
+      },
+      bays: toList(workCentersRes).map(toBay),
+      jobs: active.slice(0, 20).map(toJob),
     };
   },
 

@@ -10,36 +10,25 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
-  Platform,
 } from 'react-native';
 import {
   FolderKanban,
   Search,
   Plus,
-  Filter,
   CheckCircle2,
   Clock,
   AlertTriangle,
   Layers,
-  ChevronRight,
   Calendar,
-  Building,
   User,
   DollarSign,
   TrendingUp,
-  Tag,
-  Briefcase,
-  Wrench,
-  FileText,
-  Play,
-  Send,
   X,
   RefreshCw,
-  Cpu,
   Check,
-  ChevronDown,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import {
   projectsApi,
@@ -311,7 +300,7 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
         title: newTaskForm.title.trim(),
         project_id: newTaskForm.project_id || (projects[0]?.id || ''),
         department: newTaskForm.department,
-        assigned_to_name: newTaskForm.assigned_to_name.trim() || 'Assigned Engineer',
+        assigned_to_name: newTaskForm.assigned_to_name.trim() || '',
         priority: newTaskForm.priority,
         due_date: newTaskForm.due_date || new Date().toISOString().split('T')[0],
         estimated_hours: parseFloat(newTaskForm.estimated_hours) || 8,
@@ -350,10 +339,10 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
 
   const getPriorityBadgeStyle = (priority: string) => {
     const p = (priority || '').toLowerCase();
-    if (p === 'urgent') return { bg: '#FEE2E2', text: '#DC2626' };
-    if (p === 'high') return { bg: '#FEF3C7', text: '#D97706' };
-    if (p === 'medium') return { bg: '#DBEAFE', text: '#2563EB' };
-    return { bg: '#F1F5F9', text: '#475569' };
+    if (p === 'urgent') return { bg: '#FCEBE9', text: '#C8372D' };
+    if (p === 'high') return { bg: '#FDF4DF', text: '#B7791F' };
+    if (p === 'medium') return { bg: '#EAEEF7', text: '#3B5BA9' };
+    return { bg: '#EFECE5', text: '#4B5365' };
   };
 
   return (
@@ -543,10 +532,10 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                   </Text>
                   <View style={styles.stageGrid}>
                     {[
-                      { name: 'Planning', count: projects.filter((p) => (p.current_status || '').includes('planning')).length, color: '#8B5CF6' },
+                      { name: 'Planning', count: projects.filter((p) => (p.current_status || '').includes('planning')).length, color: '#6D4BC9' },
                       { name: 'Design / CAD', count: projects.filter((p) => (p.current_status || '').includes('design')).length, color: '#EC4899' },
-                      { name: 'Store / Material', count: projects.filter((p) => (p.current_status || '').includes('material')).length, color: '#F59E0B' },
-                      { name: 'Fabrication', count: projects.filter((p) => (p.current_status || '').includes('production')).length, color: '#10B981' },
+                      { name: 'Store / Material', count: projects.filter((p) => (p.current_status || '').includes('material')).length, color: '#B7791F' },
+                      { name: 'Fabrication', count: projects.filter((p) => (p.current_status || '').includes('production')).length, color: '#17875B' },
                       { name: 'Quality & NDT', count: projects.filter((p) => (p.current_status || '').includes('qc')).length, color: '#06B6D4' },
                       { name: 'Dispatch Ready', count: projects.filter((p) => (p.current_status || '').includes('dispatch')).length, color: '#F97316' },
                     ].map((stage, idx) => (
@@ -566,10 +555,10 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                     {(summary?.priority_chart_data && summary.priority_chart_data.length > 0
                       ? summary.priority_chart_data
                       : [
-                          { name: 'Urgent', count: projects.filter((p) => (p.priority || '').toLowerCase() === 'urgent').length, fill: '#EF4444' },
-                          { name: 'High', count: projects.filter((p) => (p.priority || '').toLowerCase() === 'high').length, fill: '#F59E0B' },
-                          { name: 'Medium', count: projects.filter((p) => (p.priority || '').toLowerCase() === 'medium').length, fill: '#3B82F6' },
-                          { name: 'Low', count: projects.filter((p) => (p.priority || '').toLowerCase() === 'low').length, fill: '#94A3B8' },
+                          { name: 'Urgent', count: projects.filter((p) => (p.priority || '').toLowerCase() === 'urgent').length, fill: '#C8372D' },
+                          { name: 'High', count: projects.filter((p) => (p.priority || '').toLowerCase() === 'high').length, fill: '#B7791F' },
+                          { name: 'Medium', count: projects.filter((p) => (p.priority || '').toLowerCase() === 'medium').length, fill: '#3B5BA9' },
+                          { name: 'Low', count: projects.filter((p) => (p.priority || '').toLowerCase() === 'low').length, fill: '#8A8F9C' },
                         ]
                     ).map((item, idx) => (
                       <View key={idx} style={[styles.priorityPill, { borderColor: item.fill }]}>
@@ -584,15 +573,15 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                 {/* Department Workload Summary */}
                 <View style={styles.card}>
                   <Text style={styles.cardHeaderTitle}>Department Task Loads</Text>
-                  <Text style={styles.cardHeaderSubtitle}>Open tasks and estimated engineering hours</Text>
+                  <Text style={styles.cardHeaderSubtitle}>Open tasks by department</Text>
                   <View style={styles.deptLoadList}>
                     {(summary?.department_chart_data && summary.department_chart_data.length > 0
                       ? summary.department_chart_data
                       : [
-                          { name: 'Production', count: tasks.filter((t) => t.department === 'Production').length, hours: 80 },
-                          { name: 'Design', count: tasks.filter((t) => t.department === 'Design').length, hours: 45 },
-                          { name: 'QC', count: tasks.filter((t) => t.department === 'Quality' || t.department === 'QC').length, hours: 24 },
-                          { name: 'Purchase', count: tasks.filter((t) => t.department === 'Purchase').length, hours: 32 },
+                          { name: 'Production', count: tasks.filter((t) => t.department === 'Production').length, hours: 0 },
+                          { name: 'Design', count: tasks.filter((t) => t.department === 'Design').length, hours: 0 },
+                          { name: 'QC', count: tasks.filter((t) => t.department === 'Quality' || t.department === 'QC').length, hours: 0 },
+                          { name: 'Purchase', count: tasks.filter((t) => t.department === 'Purchase').length, hours: 0 },
                         ]
                     ).map((dept, idx) => (
                       <View key={idx} style={styles.deptLoadRow}>
@@ -600,10 +589,12 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                           <Text style={styles.deptNameText}>{dept.name}</Text>
                           <Text style={styles.deptSubText}>{dept.count} tasks assigned</Text>
                         </View>
-                        <View style={styles.deptHoursBadge}>
-                          <Clock size={12} color={colors.primary} />
-                          <Text style={styles.deptHoursText}>{dept.hours} hrs</Text>
-                        </View>
+                        {dept.hours > 0 ? (
+                          <View style={styles.deptHoursBadge}>
+                            <Clock size={12} color={colors.primary} />
+                            <Text style={styles.deptHoursText}>{dept.hours} hrs</Text>
+                          </View>
+                        ) : null}
                       </View>
                     ))}
                   </View>
@@ -648,8 +639,8 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                         </View>
 
                         {/* Customer & Product Information */}
-                        <Text style={styles.projectCustomerName}>{prj.customer_name || 'Direct Client'}</Text>
-                        <Text style={styles.projectProductName}>{prj.product_name || 'Fabrication Equipment'}</Text>
+                        <Text style={styles.projectCustomerName}>{prj.customer_name || '—'}</Text>
+                        <Text style={styles.projectProductName}>{prj.product_name || '—'}</Text>
                         {prj.specification ? (
                           <Text style={styles.projectSpecText} numberOfLines={1}>
                             {prj.specification}
@@ -695,7 +686,7 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                         <View style={styles.cardBottomRow}>
                           <View style={styles.pmInfo}>
                             <User size={13} color={colors.textSecondary} />
-                            <Text style={styles.pmName}>{prj.project_manager_name || 'Bhavin Shah'}</Text>
+                            <Text style={styles.pmName}>{prj.project_manager_name || '—'}</Text>
                           </View>
                           <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
                             <Text style={[styles.statusBadgeText, { color: statusColor }]}>
@@ -755,7 +746,7 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                         <View style={styles.stageTitleCol}>
                           <Text style={styles.stageTitleText}>{stage.name}</Text>
                           <Text style={styles.stageDeptText}>
-                            {(stage.department || 'Production').toUpperCase()} • Assigned: {stage.assigned_employee_name || 'Engineering Lead'}
+                            {(stage.department || 'Production').toUpperCase()} • Assigned: {stage.assigned_employee_name || '—'}
                           </Text>
                         </View>
                         {!isCompleted && (
@@ -830,7 +821,7 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                             {(task.department || 'General').toUpperCase()}
                           </Text>
                           <Text style={styles.taskAssigneeText}>
-                            Assignee: {task.assigned_to_name || 'Staff Member'}
+                            Assignee: {task.assigned_to_name || '—'}
                           </Text>
                         </View>
 
@@ -1215,7 +1206,7 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Specifications:</Text>
                     <Text style={styles.detailValue}>
-                      {selectedProjectDetail.specification || 'Standard Factory Spec'}
+                      {selectedProjectDetail.specification || '—'}
                     </Text>
                   </View>
 
@@ -1234,7 +1225,7 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Customer PO #:</Text>
                     <Text style={styles.detailValue}>
-                      {selectedProjectDetail.customer_po_number || 'Direct Contract'}
+                      {selectedProjectDetail.customer_po_number || '—'}
                     </Text>
                   </View>
 
@@ -1253,7 +1244,7 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Project Manager:</Text>
                     <Text style={styles.detailValue}>
-                      {selectedProjectDetail.project_manager_name || 'Bhavin Shah'}
+                      {selectedProjectDetail.project_manager_name || '—'}
                     </Text>
                   </View>
 
@@ -1295,7 +1286,7 @@ export const ProjectManagementScreen: React.FC<ProjectManagementScreenProps> = (
 // STYLES
 // ==========================================
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1439,7 +1430,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   errorCard: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FCEBE9',
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     alignItems: 'center',
@@ -2069,4 +2060,4 @@ const styles = StyleSheet.create({
     width: '60%',
     textAlign: 'right',
   },
-});
+}));

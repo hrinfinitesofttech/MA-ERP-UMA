@@ -16,7 +16,6 @@ import {
 import {
   Factory,
   Briefcase,
-  Layers,
   Wrench,
   Clock,
   CheckCircle2,
@@ -25,20 +24,17 @@ import {
   Truck,
   Plus,
   Search,
-  Filter,
-  ArrowRight,
   ShieldCheck,
   RotateCcw,
   Activity,
   Play,
   X,
-  Calendar,
   User,
   Sliders,
-  ChevronRight,
   Info,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import {
   productionApi,
@@ -451,24 +447,6 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
         </View>
       )}
 
-      {/* Top Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <View style={styles.headerIconBox}>
-            <Factory size={20} color={colors.primary} />
-          </View>
-          <View>
-            <Text style={styles.headerTitle}>Production & Shop Floor</Text>
-            <Text style={styles.headerSubtitle}>
-              Heavy Fabrication Bays, Machine Allocation & OEE Control
-            </Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.backBtn} onPress={onBackToDashboard}>
-          <Text style={styles.backBtnText}>Dashboard</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* 6 Executive KPI Cards */}
       <View style={styles.kpiContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kpiScroll}>
@@ -504,17 +482,17 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
             <Text style={styles.kpiLabel}>Operations WIP</Text>
           </View>
 
-          <View style={[styles.kpiCard, { borderLeftColor: '#0284C7' }]}>
+          <View style={[styles.kpiCard, { borderLeftColor: '#E0702B' }]}>
             <View style={styles.kpiIconBox}>
-              <CheckCircle2 size={16} color="#0284C7" />
+              <CheckCircle2 size={16} color="#E0702B" />
             </View>
             <Text style={styles.kpiValue}>{totalGoodQty}</Text>
             <Text style={styles.kpiLabel}>Daily Good Qty</Text>
           </View>
 
-          <View style={[styles.kpiCard, { borderLeftColor: '#7C3AED' }]}>
+          <View style={[styles.kpiCard, { borderLeftColor: '#6D4BC9' }]}>
             <View style={styles.kpiIconBox}>
-              <Truck size={16} color="#7C3AED" />
+              <Truck size={16} color="#6D4BC9" />
             </View>
             <Text style={styles.kpiValue}>{finishedGoodsCount}</Text>
             <Text style={styles.kpiLabel}>Ready FG Units</Text>
@@ -580,42 +558,12 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
           {/* ------------------------------------------------------------- */}
           {activeTab === 'dashboard' && (
             <View style={styles.tabContent}>
-              {/* Shop Floor Stage Pipeline */}
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>Fabrication Process Pipeline</Text>
-                  <Text style={styles.cardSub}>5-Stage Heavy Equipment Lifecycle</Text>
-                </View>
-                <View style={styles.pipelineFlow}>
-                  {[
-                    { step: '01', title: 'Plasma Cutting', bay: 'Bay 1 North', status: 'Completed' },
-                    { step: '02', title: 'Shell Rolling', bay: 'Bay 1 Center', status: 'Completed' },
-                    { step: '03', title: 'SAW Welding', bay: 'Bay 2 South', status: 'In Progress' },
-                    { step: '04', title: 'CNC Boring', bay: 'Bay 3 Machining', status: 'Pending' },
-                    { step: '05', title: 'Hydro Test', bay: 'Testing Bunker', status: 'Pending' },
-                  ].map((p, idx) => (
-                    <View key={idx} style={styles.pipelineItem}>
-                      <View style={[styles.pipelineCircle, p.status === 'Completed' ? styles.pipelineCompleted : p.status === 'In Progress' ? styles.pipelineActive : styles.pipelinePending]}>
-                        <Text style={styles.pipelineStepText}>{p.step}</Text>
-                      </View>
-                      <Text style={styles.pipelineTitle}>{p.title}</Text>
-                      <Text style={styles.pipelineBay}>{p.bay}</Text>
-                      <View style={[styles.statusPill, { backgroundColor: p.status === 'Completed' ? colors.successLight : p.status === 'In Progress' ? colors.warningLight : colors.border }]}>
-                        <Text style={[styles.statusPillText, { color: p.status === 'Completed' ? colors.success : p.status === 'In Progress' ? colors.warning : colors.textMuted }]}>
-                          {p.status}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
               {/* Bay Telemetry & OEE Cards */}
               <View style={styles.card}>
                 <View style={styles.cardHeaderRow}>
-                  <View>
-                    <Text style={styles.cardTitle}>Shop Floor Bays Telemetry</Text>
-                    <Text style={styles.cardSub}>Real-time Work Center Machine Availability & Efficiency</Text>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.cardTitle}>Work Centers</Text>
+                    <Text style={styles.cardSub}>Availability & efficiency</Text>
                   </View>
                   <TouchableOpacity style={styles.actionPillBtn} onPress={() => setActiveTab('bays')}>
                     <Text style={styles.actionPillBtnText}>View All Bays</Text>
@@ -629,11 +577,11 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                         <View style={[styles.bayStatusDot, { backgroundColor: isRunning ? colors.success : colors.textMuted }]} />
                         <View style={{ flex: 1 }}>
                           <Text style={styles.bayCode}>{wc.work_center_code || wc.workCenterCode} — {wc.work_center_name || wc.workCenterName}</Text>
-                          <Text style={styles.bayLocation}>{wc.location || 'Main Fabrication Shop'} • Machine: {wc.machine_name || wc.machineName || 'Heavy Machinery'}</Text>
+                          <Text style={styles.bayLocation}>{wc.location || '—'} • Machine: {wc.machine_name || wc.machineName || '—'}</Text>
                         </View>
                       </View>
                       <View style={styles.bayMetrics}>
-                        <Text style={styles.bayOee}>{wc.efficiency_percent || wc.efficiencyPercent || 90}% OEE</Text>
+                        <Text style={styles.bayOee}>{wc.efficiency_percent || wc.efficiencyPercent || 0}% OEE</Text>
                         <Text style={styles.bayHours}>{wc.available_hours || wc.availableHours || 8}h Avail</Text>
                       </View>
                     </View>
@@ -666,6 +614,31 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                   </TouchableOpacity>
                 </View>
               </View>
+
+              {/* Active production holds with resume action */}
+              {productionHolds.filter((h) => !String(h.status || '').toLowerCase().includes('resum')).length > 0 && (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>Active Holds</Text>
+                    <Text style={styles.cardSub}>Flagged work waiting to resume</Text>
+                  </View>
+                  {productionHolds
+                    .filter((h) => !String(h.status || '').toLowerCase().includes('resum'))
+                    .map((h) => (
+                      <View key={h.id} style={styles.holdRow}>
+                        <View style={styles.holdInfo}>
+                          <Text style={styles.holdTitle}>{h.hold_number || h.work_order_number || '—'}</Text>
+                          <Text style={styles.holdMeta}>
+                            {h.reason || '—'} {h.job_number ? '• ' + h.job_number : ''}
+                          </Text>
+                        </View>
+                        <TouchableOpacity style={styles.holdResumeBtn} onPress={() => handleResumeHold(h.id)}>
+                          <Text style={styles.holdResumeText}>Resume</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                </View>
+              )}
             </View>
           )}
 
@@ -729,9 +702,9 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                   return (
                     <View key={wo.id} style={styles.orderCard}>
                       <View style={styles.orderCardHeader}>
-                        <View>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
                           <Text style={styles.orderNumber}>{wo.work_order_number || wo.workOrderNumber}</Text>
-                          <Text style={styles.orderJob}>Job: {wo.job_number || wo.jobNumber || 'General Fabrication'}</Text>
+                          <Text style={styles.orderJob}>Job: {wo.job_number || wo.jobNumber || '—'}</Text>
                         </View>
                         <View style={[styles.statusPill, { backgroundColor: badge.bg }]}>
                           <Text style={[styles.statusPillText, { color: badge.text }]}>{badge.label}</Text>
@@ -803,7 +776,7 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                       </View>
                       <View style={{ flex: 1, marginLeft: 10 }}>
                         <Text style={styles.opName}>{op.operation_name || op.operationName}</Text>
-                        <Text style={styles.opDept}>{op.department || 'Fabrication Department'}</Text>
+                        <Text style={styles.opDept}>{op.department || '—'}</Text>
                       </View>
                       <View style={[styles.statusPill, { backgroundColor: badge.bg }]}>
                         <Text style={[styles.statusPillText, { color: badge.text }]}>{badge.label}</Text>
@@ -813,7 +786,7 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                     <View style={styles.opDetailRow}>
                       <View style={styles.opDetailItem}>
                         <Factory size={12} color={colors.textMuted} />
-                        <Text style={styles.opDetailText}>{op.work_center_name || op.workCenterName || 'Fabrication Bay'}</Text>
+                        <Text style={styles.opDetailText}>{op.work_center_name || op.workCenterName || '—'}</Text>
                       </View>
                       <View style={styles.opDetailItem}>
                         <Wrench size={12} color={colors.textMuted} />
@@ -821,7 +794,7 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                       </View>
                       <View style={styles.opDetailItem}>
                         <User size={12} color={colors.textMuted} />
-                        <Text style={styles.opDetailText}>{op.assigned_operator || op.assignedOperator || 'Assigned Lead'}</Text>
+                        <Text style={styles.opDetailText}>{op.assigned_operator || op.assignedOperator || '—'}</Text>
                       </View>
                     </View>
 
@@ -831,7 +804,7 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                       </Text>
                       {op.qc_required && (
                         <View style={styles.qcTag}>
-                          <ShieldCheck size={11} color="#059669" />
+                          <ShieldCheck size={11} color="#17875B" />
                           <Text style={styles.qcTagText}>QC Required</Text>
                         </View>
                       )}
@@ -879,8 +852,8 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                     </View>
 
                     <View style={styles.bayMetaRow}>
-                      <Text style={styles.bayMetaItem}>Location: {wc.location || 'Bay Floor'}</Text>
-                      <Text style={styles.bayMetaItem}>Supervisor: {wc.supervisor_name || wc.supervisorName || 'Bay Lead'}</Text>
+                      <Text style={styles.bayMetaItem}>Location: {wc.location || '—'}</Text>
+                      <Text style={styles.bayMetaItem}>Supervisor: {wc.supervisor_name || wc.supervisorName || '—'}</Text>
                     </View>
 
                     <View style={styles.machineDetailBox}>
@@ -890,15 +863,15 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
 
                     <View style={styles.capacityBarWrapper}>
                       <View style={styles.capacityBarHeader}>
-                        <Text style={styles.capacityLabel}>Shift Capacity: {wc.capacity_per_day_hours || wc.capacityPerDayHours || 16}h</Text>
-                        <Text style={styles.capacityVal}>OEE Efficiency: {wc.efficiency_percent || wc.efficiencyPercent || 90}%</Text>
+                        <Text style={styles.capacityLabel}>Shift Capacity: {wc.capacity_per_day_hours || wc.capacityPerDayHours || 0}h</Text>
+                        <Text style={styles.capacityVal}>OEE Efficiency: {wc.efficiency_percent || wc.efficiencyPercent || 0}%</Text>
                       </View>
                       <View style={styles.progressBarBg}>
                         <View
                           style={[
                             styles.progressBarFill,
                             {
-                              width: `${Math.min(100, wc.efficiency_percent || wc.efficiencyPercent || 90)}%`,
+                              width: `${Math.min(100, wc.efficiency_percent || wc.efficiencyPercent || 0)}%`,
                               backgroundColor: isRunning ? colors.success : colors.warning,
                             },
                           ]}
@@ -934,12 +907,12 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                 filteredEntries.map((pe) => (
                   <View key={pe.id} style={styles.logCard}>
                     <View style={styles.logCardHeader}>
-                      <View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
                         <Text style={styles.logNumber}>{pe.production_entry_number || pe.productionEntryNumber}</Text>
                         <Text style={styles.logDate}>{pe.entry_date || pe.entryDate} • WO: {pe.work_order_number || pe.workOrderNumber}</Text>
                       </View>
                       <View style={styles.goodQtyBadge}>
-                        <CheckCircle2 size={12} color="#059669" />
+                        <CheckCircle2 size={12} color="#17875B" />
                         <Text style={styles.goodQtyBadgeText}>{pe.good_quantity || pe.goodQuantity || 0} Good Units</Text>
                       </View>
                     </View>
@@ -1017,7 +990,7 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
                   </View>
                   <Text style={styles.dispCustomer}>Customer: {disp.customer_name || disp.customerName}</Text>
                   <Text style={styles.dispVehicle}>Vehicle: {disp.vehicle_number || disp.vehicleNumber || 'Trailer'} • {disp.transporter_name || disp.transporterName}</Text>
-                  <Text style={styles.dispDest}>Destination: {disp.destination_city || disp.destinationCity || 'Client Site'}</Text>
+                  <Text style={styles.dispDest}>Destination: {disp.destination_city || disp.destinationCity || '—'}</Text>
                 </View>
               ))}
             </View>
@@ -1370,7 +1343,7 @@ export const ProductionShopFloorScreen: React.FC<ProductionShopFloorScreenProps>
 // -------------------------------------------------------------
 // STYLESHEET
 // -------------------------------------------------------------
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1523,6 +1496,24 @@ const styles = StyleSheet.create({
   cardHeader: {
     marginBottom: spacing.sm,
   },
+  holdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  holdInfo: { flex: 1 },
+  holdTitle: { fontSize: 14, fontWeight: '800', color: colors.textPrimary },
+  holdMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  holdResumeBtn: {
+    backgroundColor: colors.warningLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: borderRadius.md,
+  },
+  holdResumeText: { fontSize: 12, fontWeight: '800', color: colors.warning },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1911,7 +1902,7 @@ const styles = StyleSheet.create({
   qcTagText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#059669',
+    color: '#17875B',
   },
   instructionsBox: {
     flexDirection: 'row',
@@ -2052,7 +2043,7 @@ const styles = StyleSheet.create({
   goodQtyBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#059669',
+    color: '#17875B',
   },
   logOperation: {
     fontSize: 12,
@@ -2353,4 +2344,4 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 2,
   },
-});
+}));

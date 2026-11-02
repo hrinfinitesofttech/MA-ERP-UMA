@@ -11,39 +11,26 @@ import {
   Modal,
   Alert,
   SafeAreaView,
-  Platform,
 } from 'react-native';
 import {
-  Landmark,
   TrendingUp,
   TrendingDown,
-  DollarSign,
   Receipt,
   CreditCard,
-  FileText,
-  Building,
-  Users,
   Coins,
   AlertTriangle,
   CheckCircle2,
   Plus,
-  ArrowUpRight,
-  ArrowDownRight,
   Scale,
-  Calendar,
   Wallet,
-  Clock,
   Briefcase,
   Layers,
   Search,
-  Filter,
   X,
-  ChevronRight,
   Info,
-  ShieldCheck,
-  RotateCcw,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import {
   accountingApi,
@@ -445,22 +432,6 @@ export const AccountingFinanceScreen: React.FC<AccountingFinanceScreenProps> = (
         </View>
       )}
 
-      {/* Top Header / Sub-Nav */}
-      <View style={styles.headerBar}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={onBackToDashboard} style={styles.backBtn}>
-            <Landmark size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <View>
-            <Text style={styles.screenTitle}>Accounting & Finance</Text>
-            <Text style={styles.screenSubtitle}>General Ledger, AR, AP & Treasury</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh} disabled={refreshing}>
-          <RotateCcw size={18} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
       {/* Executive Financial KPI Summary Ribbon */}
       <View style={styles.kpiContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kpiScroll}>
@@ -615,7 +586,7 @@ export const AccountingFinanceScreen: React.FC<AccountingFinanceScreenProps> = (
                   ]).map((bucket) => (
                     <View key={bucket.name} style={[styles.agingCard, { borderLeftColor: bucket.color || colors.primary }]}>
                       <Text style={styles.agingLabel}>{bucket.name}</Text>
-                      <Text style={styles.agingAmount}>₹{Number(bucket.amount || 0).toLocaleString('en-IN')}</Text>
+                      <Text style={styles.agingAmount}>₹{Number(bucket.amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
                     </View>
                   ))}
                 </View>
@@ -636,7 +607,7 @@ export const AccountingFinanceScreen: React.FC<AccountingFinanceScreenProps> = (
                   ]).map((bucket) => (
                     <View key={bucket.name} style={[styles.agingCard, { borderLeftColor: bucket.color || colors.danger }]}>
                       <Text style={styles.agingLabel}>{bucket.name}</Text>
-                      <Text style={styles.agingAmount}>₹{Number(bucket.amount || 0).toLocaleString('en-IN')}</Text>
+                      <Text style={styles.agingAmount}>₹{Number(bucket.amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
                     </View>
                   ))}
                 </View>
@@ -1459,7 +1430,7 @@ export const AccountingFinanceScreen: React.FC<AccountingFinanceScreenProps> = (
   );
 };
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   safeContainer: {
     flex: 1,
     backgroundColor: colors.background,
@@ -2154,4 +2125,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-});
+}));

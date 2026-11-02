@@ -1,14 +1,5 @@
 import React from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  SafeAreaView,
-  Pressable,
-} from 'react-native';
+import { Modal, View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Pressable } from 'react-native';
 import {
   LayoutDashboard,
   Users,
@@ -18,16 +9,12 @@ import {
   Warehouse,
   Factory,
   Landmark,
-  Wrench,
-  UserCheck,
-  Share2,
-  ShieldCheck,
   Settings,
-  ChevronRight,
   X,
   LogOut,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
+import { themedStyles } from '../../theme/themedStyles';
 import { borderRadius, shadows, spacing } from '../../theme/spacing';
 import { useAuth } from '../../context/AuthContext';
 
@@ -39,336 +26,180 @@ interface DrawerMenuModalProps {
 }
 
 export const ERP_MODULES = [
-  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, phase: 1, active: true },
-  { id: 'crm_sales', name: 'CRM & Sales', icon: Users, phase: 2, active: true },
-  { id: 'project_management', name: 'Project Management', icon: FolderKanban, phase: 3, active: true },
-  { id: 'designer_engineering', name: 'Designer & Engineering', icon: Compass, phase: 4, active: true },
-  { id: 'purchase_management', name: 'Purchase Management', icon: ShoppingBag, phase: 5, active: true },
-  { id: 'store_warehouse', name: 'Store & Warehouse', icon: Warehouse, phase: 6, active: true },
-  { id: 'production_shop_floor', name: 'Production & Shop Floor', icon: Factory, phase: 7, active: true },
-  { id: 'accounting_finance', name: 'Accounting & Finance', icon: Landmark, phase: 8, active: true },
-  { id: 'maintenance_services', name: 'Maintenance & Services', icon: Wrench, phase: 9, active: false },
-  { id: 'hr_payroll', name: 'HR & Payroll', icon: UserCheck, phase: 10, active: false },
-  { id: 'integration_360', name: 'Integration & 360°', icon: Share2, phase: 11, active: false },
-  { id: 'testing_security', name: 'Testing & Security', icon: ShieldCheck, phase: 12, active: false },
-  { id: 'foundation_admin', name: 'Foundation & Admin', icon: Settings, phase: 13, active: false },
+  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
+  { id: 'crm_sales', name: 'CRM & Sales', icon: Users },
+  { id: 'project_management', name: 'Projects', icon: FolderKanban },
+  { id: 'designer_engineering', name: 'Design & Engineering', icon: Compass },
+  { id: 'purchase_management', name: 'Purchase', icon: ShoppingBag },
+  { id: 'store_warehouse', name: 'Store & Warehouse', icon: Warehouse },
+  { id: 'production_shop_floor', name: 'Production', icon: Factory },
+  { id: 'accounting_finance', name: 'Accounts & Finance', icon: Landmark },
+  { id: 'settings', name: 'Settings & Theme', icon: Settings },
 ];
 
-export const DrawerMenuModal: React.FC<DrawerMenuModalProps> = ({
-  visible,
-  onClose,
-  activeRoute,
-  onSelectRoute,
-}) => {
+export const DrawerMenuModal: React.FC<DrawerMenuModalProps> = ({ visible, onClose, activeRoute, onSelectRoute }) => {
   const { user, logout } = useAuth();
+  const displayName = user?.name || user?.username || 'User';
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-
-        <SafeAreaView style={styles.drawerContainer}>
-          {/* Top Brand Card */}
+        <SafeAreaView style={styles.drawer}>
           <View style={styles.header}>
-            <View style={styles.logoRow}>
-              <View style={styles.logoIcon}>
-                <Settings size={20} color={colors.textInverse} />
+            <View style={styles.headerTop}>
+              <View style={styles.logo}>
+                <Image source={require('../../../assets/logo.png')} style={styles.logoImage} resizeMode="contain" />
               </View>
-              <View style={styles.brandTextContainer}>
-                <Text style={styles.companyName}>UMA TECHNO FAB</Text>
-                <Text style={styles.companyTagline}>Manufacturing ERP</Text>
+              <View style={styles.flex}>
+                <Text style={styles.company}>UMA TECHNO FAB</Text>
+                <Text style={styles.tagline}>Manufacturing ERP</Text>
               </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={20} color={colors.textSecondary} />
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close menu">
+                <X size={18} color={colors.textInverse} />
               </TouchableOpacity>
             </View>
 
-            {/* User Profile Bar */}
-            <View style={styles.userProfileCard}>
-              <View style={styles.userAvatar}>
-                <Text style={styles.userAvatarText}>
-                  {(user?.name || user?.username || 'U')[0].toUpperCase()}
-                </Text>
+            <TouchableOpacity
+              style={styles.userRow}
+              activeOpacity={0.8}
+              onPress={() => {
+                onSelectRoute('profile');
+                onClose();
+              }}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{displayName[0].toUpperCase()}</Text>
               </View>
-              <View style={styles.userInfo}>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {user?.name || user?.username || 'Employee'}
-                </Text>
-                <Text style={styles.userRole} numberOfLines={1}>
-                  {user?.roleName || user?.roleType || 'Authorized User'}
-                </Text>
+              <View style={styles.flex}>
+                <Text style={styles.userName} numberOfLines={1}>{displayName}</Text>
+                <Text style={styles.userRole} numberOfLines={1}>{user?.roleName || user?.roleType || 'Team member'}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
 
-          {/* Module Nav Items */}
-          <ScrollView
-            style={styles.menuScroll}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.menuContent}
-          >
+          <ScrollView style={styles.flex} contentContainerStyle={styles.menuContent} showsVerticalScrollIndicator={false}>
             {ERP_MODULES.map((item) => {
-              const isSelected = activeRoute === item.id;
-              const IconComponent = item.icon;
-
+              const selected = activeRoute === item.id;
+              const Icon = item.icon;
               return (
                 <TouchableOpacity
                   key={item.id}
                   activeOpacity={0.8}
-                  style={[
-                    styles.menuItem,
-                    isSelected && styles.menuItemActive,
-                  ]}
+                  style={[styles.menuItem, selected && styles.menuItemActive]}
                   onPress={() => {
                     onSelectRoute(item.id);
                     onClose();
                   }}
                 >
-                  <View style={styles.menuLeft}>
-                    <IconComponent
-                      size={20}
-                      color={isSelected ? colors.textInverse : colors.primary}
-                    />
-                    <Text
-                      style={[
-                        styles.menuTitle,
-                        isSelected && styles.menuTitleActive,
-                      ]}
-                    >
-                      {item.name}
-                    </Text>
+                  <View style={[styles.menuIcon, selected && styles.menuIconActive]}>
+                    <Icon size={18} color={selected ? colors.textInverse : colors.primary} />
                   </View>
-
-                  {!item.active ? (
-                    <View style={styles.phaseBadge}>
-                      <Text style={styles.phaseBadgeText}>P{item.phase}</Text>
-                    </View>
-                  ) : (
-                    <ChevronRight
-                      size={18}
-                      color={isSelected ? colors.textInverse : colors.textMuted}
-                    />
-                  )}
+                  <Text style={[styles.menuTitle, selected && styles.menuTitleActive]}>{item.name}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* Bottom Brand Card from ERP Reference Image */}
-          <View style={styles.footer}>
-            <View style={styles.partnershipCard}>
-              <View style={styles.partnershipCircle}>
-                <Text style={styles.partnershipLetter}>N</Text>
-              </View>
-              <Text style={styles.partnershipText}>
-                Quality | Innovation | Partnership
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.logoutBtn}
-              onPress={() => {
-                onClose();
-                logout();
-              }}
-            >
-              <LogOut size={16} color={colors.danger} />
-              <Text style={styles.logoutText}>Sign Out</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => {
+              onClose();
+              logout();
+            }}
+          >
+            <LogOut size={16} color={colors.danger} />
+            <Text style={styles.logoutText}>Sign out</Text>
+          </TouchableOpacity>
         </SafeAreaView>
+        <Pressable style={styles.flex} onPress={onClose} />
       </View>
     </Modal>
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    flexDirection: 'row',
-  },
-  backdrop: {
-    flex: 1,
-  },
-  drawerContainer: {
-    width: '84%',
+const styles = themedStyles(() => StyleSheet.create({
+  flex: { flex: 1 },
+  overlay: { flex: 1, backgroundColor: 'rgba(13, 23, 48, 0.55)', flexDirection: 'row' },
+  drawer: {
+    width: '82%',
     maxWidth: 320,
-    backgroundColor: colors.surface,
-    height: '100%',
+    backgroundColor: colors.background,
     borderTopRightRadius: borderRadius.xl,
     borderBottomRightRadius: borderRadius.xl,
+    overflow: 'hidden',
     ...shadows.lg,
   },
-  header: {
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  logoIcon: {
-    width: 38,
-    height: 38,
+  header: { backgroundColor: colors.header, padding: spacing.lg, paddingBottom: spacing.xl },
+  headerTop: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, gap: spacing.md },
+  logo: {
+    width: 64,
+    height: 44,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    padding: 4,
   },
-  brandTextContainer: {
-    flex: 1,
-  },
-  companyName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    letterSpacing: 0.4,
-  },
-  companyTagline: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
+  logoImage: { width: '100%', height: '100%' },
+  company: { fontSize: 15, fontWeight: '800', color: colors.textInverse, letterSpacing: 0.4 },
+  tagline: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
   closeBtn: {
-    padding: spacing.xs,
-  },
-  userProfileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceSubtle,
-    padding: spacing.sm + 2,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  userAvatar: {
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.accent,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
   },
-  userAvatarText: {
-    color: colors.textInverse,
-    fontWeight: '800',
-    fontSize: 13,
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
   },
-  userInfo: {
-    flex: 1,
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  userName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  userRole: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  menuScroll: {
-    flex: 1,
-  },
-  menuContent: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
+  avatarText: { color: colors.primary, fontWeight: '800', fontSize: 14 },
+  userName: { fontSize: 14, fontWeight: '700', color: colors.textInverse },
+  userRole: { fontSize: 11, color: 'rgba(255,255,255,0.65)' },
+  menuContent: { padding: spacing.md, gap: spacing.xs },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md - 1,
-    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
-    marginBottom: spacing.xs,
   },
-  menuItemActive: {
-    backgroundColor: colors.primary,
-    ...shadows.sm,
-  },
-  menuLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginLeft: spacing.md,
-  },
-  menuTitleActive: {
-    color: colors.textInverse,
-    fontWeight: '700',
-  },
-  phaseBadge: {
-    backgroundColor: colors.surfaceSubtle,
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: 2,
+  menuItemActive: { backgroundColor: colors.surface, ...shadows.sm },
+  menuIcon: {
+    width: 34,
+    height: 34,
     borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  phaseBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textMuted,
-  },
-  footer: {
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  partnershipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceSubtle,
-    padding: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-  partnershipCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primarySubtle,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
   },
-  partnershipLetter: {
-    color: colors.textInverse,
-    fontWeight: '900',
-    fontSize: 11,
-  },
-  partnershipText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    flex: 1,
-  },
+  menuIconActive: { backgroundColor: colors.accent },
+  menuTitle: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  menuTitleActive: { color: colors.textPrimary, fontWeight: '800' },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
+    gap: spacing.sm,
+    margin: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.dangerLight,
   },
-  logoutText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.danger,
-  },
-});
+  logoutText: { fontSize: 13, fontWeight: '700', color: colors.danger },
+}));
